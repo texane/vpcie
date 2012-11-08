@@ -1,8 +1,3 @@
-[ title ]
-
-vpcie: virtual PCIE devices
-
-
 [ introduction ]
 
 I am an engineer implementing software for PCIE based data acquisition
@@ -33,13 +28,29 @@ implementation of PCIE devices.
 [ installation ]
 
 [[ QEMU ]]
-clone qemu at revision
-apply the patch in qemu/xxx.diff
-it adds PCIEFW device to the hw directory and integrate to build system
+
+Instructions to clone the QEMU repo are available at:
+http://wiki.qemu.org/Main_Page
+
+checkout revision:
+58617a795c8067b2f9800cffce60f38707d3aa31
+
+Apply the patch:
+qemu/qemu_58617a795c8067b2f9800cffce60f38707d3aa31.diff
+
+It adds PCIEFW to the QEMU hw directory and integrate it to the build system
 
 [[ GHDL ]]
-get GHDL from
-note this is the only version I successfully compiled on debian 64 bits
+
+Currently, GHDL has to be compiled from sources. A working repository is at:
+http://github.com/peteut/ghdl.git
+
+For information, the revision used is:
+42cc43913147b12bf5ae89c6fe64c3977b30018f
+
+Follow the installation instructions available in:
+ghdl/README
+
 
 [[ test with simple example ]]
 
@@ -60,6 +71,7 @@ several layers:
 . callback based network messaging (pcie_net.c),
 . PCIE low level requests (pcie.c),
 . simple glue and packages for GHDL (pcie_xxx.vhdl).
+
 These layers are made to simplify the development of simple PCIE devices,
 so that one can focus on the hardware logic. They have some limitations,
 but one can still choose not to use them and directly handle low level
