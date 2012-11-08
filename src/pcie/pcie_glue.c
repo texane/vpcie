@@ -82,6 +82,13 @@ static void fifo_fini(fifo_t* f)
   pthread_mutex_destroy(&f->lock);
 }
 
+static inline fnode_t* fifo_alloc_node(size_t size)
+{
+  fnode_t* const node = malloc(size);
+  node->next = NULL;
+  return node;
+}
+
 static fnode_t* fifo_alloc_access_node
 (
  unsigned int is_read,
@@ -91,8 +98,7 @@ static fnode_t* fifo_alloc_access_node
  const void* data
 )
 {
-  fnode_t* const node = malloc(sizeof(fnode_t));
-  node->next = NULL;
+  fnode_t* const node = fifo_alloc_node(sizeof(fnode_t));
   node->u.bar_access.is_replied = 0;
   node->u.bar_access.is_read = is_read;
   node->u.bar_access.bar = bar;
@@ -314,8 +320,7 @@ static fnode_t* alloc_write_node(uint8_t op, uint64_t addr, uint16_t size)
   fnode_t* node;
   pcie_net_msg_t* m;
 
-  node = malloc(offsetof(fnode_t, u.msg.data) + sizeof(uint64_t));
-  node->next = NULL;
+  node = fifo_alloc_node(offsetof(fnode_t, u.msg.data) + sizeof(uint64_t));
 
   m = &node->u.msg;
   m->op = op;
