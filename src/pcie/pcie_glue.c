@@ -325,6 +325,7 @@ static fnode_t* alloc_write_node(uint8_t op, uint64_t addr, uint16_t size)
   m = &node->u.msg;
   m->op = op;
   m->size = size;
+  m->addr = addr;
 
   return node;
 }
