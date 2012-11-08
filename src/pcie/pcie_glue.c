@@ -309,9 +309,8 @@ LOGIC_TO_UINT_TEMPLATE(64);
 
 /* routines exported for ghdl thread */
 
-void pcie_glue_send_msi(void)
+static fnode_t* alloc_write_node(uint8_t op, uint64_t addr, uint16_t size)
 {
-  thread_context_t* const c = &g_thread_context;
   fnode_t* node;
   pcie_net_msg_t* m;
 
@@ -319,9 +318,19 @@ void pcie_glue_send_msi(void)
   node->next = NULL;
 
   m = &node->u.msg;
-  m->op = PCIE_NET_OP_MSI;
-  m->size = sizeof(uint64_t);
-  memset(m->data, 0, sizeof(uint64_t));
+  m->op = op;
+  m->size = size;
+
+  return node;
+}
+
+void pcie_glue_send_msi(void)
+{
+  thread_context_t* const c = &g_thread_context;
+  fnode_t* node;
+
+  node = alloc_write_node(PCIE_NET_OP_MSI, 0, sizeof(uint64_t));
+  memset(node->u.msg.data, 0, sizeof(uint64_t));
 
   fifo_push_node(&c->tx_fifo, node);
   write(c->ev_fds[1], &evk_push, sizeof(evk_push));
@@ -335,23 +344,16 @@ void pcie_glue_send_write_buf
 
   thread_context_t* const c = &g_thread_context;
   fnode_t* node;
-  pcie_net_msg_t* m;
 
   const uint64_t addr = logic_to_uint64(_addr);
   const uint16_t data_size = logic_to_uint16(_data_size);
   /* const size_t data_size = buf->bounds->len; */
   size_t i;
 
-  node = malloc(offsetof(fnode_t, u.msg.data) + data_size);
-  node->next = NULL;
-
-  m = &node->u.msg;
-  m->op = PCIE_NET_OP_WRITE_MEM;
-  m->addr = addr;
-  m->size = data_size;
+  node = alloc_write_node(PCIE_NET_OP_WRITE_MEM, addr, data_size);
 
   for (i = 0; i < data_size; ++i)
-    m->data[i] = logic_to_uint8((uint8_t*)buf->base + i);
+    node->u.msg.data[i] = logic_to_uint8((uint8_t*)buf->base + i);
 
   fifo_push_node(&c->tx_fifo, node);
   write(c->ev_fds[1], &evk_push, sizeof(evk_push));
@@ -366,20 +368,13 @@ void pcie_glue_send_write
 
   thread_context_t* const c = &g_thread_context;
   fnode_t* node;
-  pcie_net_msg_t* m;
 
   const uint64_t addr = logic_to_uint64(_addr);
   const uint64_t data = logic_to_uint64(_data);
   const uint16_t data_size = logic_to_uint16(_data_size);
 
-  node = malloc(offsetof(fnode_t, u.msg.data) + data_size);
-  node->next = NULL;
-
-  m = &node->u.msg;
-  m->op = PCIE_NET_OP_WRITE_MEM;
-  m->addr = addr;
-  m->size = data_size;
-  memcpy(m->data, &data, data_size);
+  node = alloc_write_node(PCIE_NET_OP_WRITE_MEM, addr, data_size);
+  memcpy(node->u.msg.data, &data, data_size);
 
   fifo_push_node(&c->tx_fifo, node);
   write(c->ev_fds[1], &evk_push, sizeof(evk_push));
