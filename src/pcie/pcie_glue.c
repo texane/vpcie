@@ -320,7 +320,7 @@ static fnode_t* alloc_write_node(uint8_t op, uint64_t addr, uint16_t size)
   fnode_t* node;
   pcie_net_msg_t* m;
 
-  node = fifo_alloc_node(offsetof(fnode_t, u.msg.data) + sizeof(uint64_t));
+  node = fifo_alloc_node(offsetof(fnode_t, u.msg.data) + size);
 
   m = &node->u.msg;
   m->op = op;
