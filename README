@@ -56,7 +56,7 @@ ghdl/README
 
 pcie: pcie related development file, both C and VHDL
 main: currently contains a minimalistic GHDL main
-sbone: a test device and the corresponding LINUX drivers
+sbone: a device written in VHDL and the corresponding LINUX driver
 
 
 [ implementing PCIE devices ]
