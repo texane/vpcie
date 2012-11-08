@@ -52,7 +52,11 @@ Follow the installation instructions available in:
 ghdl/README
 
 
-[[ test with simple example ]]
+[ source tree ]
+
+pcie: pcie related development file, both C and VHDL
+main: currently contains a minimalistic GHDL main
+sbone: a test device and the corresponding LINUX drivers
 
 
 [ implementing PCIE devices ]
@@ -100,6 +104,7 @@ http://www.crisp-fp7.eu/research-programme
 This work heavily relies on opensource projects, mainly:
 http://wiki.qemu.org/Main_Page
 http://ghdl.free.fr
+http://ygdes.com/GHDL
 
 
 [ contact ]
