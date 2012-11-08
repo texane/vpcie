@@ -1,0 +1,95 @@
+[ title ]
+
+vpcie: virtual PCIE devices
+
+
+[ introduction ]
+
+I am an engineer implementing software for PCIE based data acquisition
+devices. The devices are designed and implemented in VHDL on XILINX FPGA
+by other people working in the same group. I wanted a simple way to test
+the drivers I am implementing against their VHDL design. The problem is
+that setting up a real hardware device takes a lot of time (FPGA synthesis,
+flashing large memories ...). Thus, I ended up with developing a virtual
+environment consisting of QEMU, LINUX and GHDL glued alltogether by a
+small TCP based protocol. It allows PCIE devices to be implemented as
+standard userland processes, answering actual PCIE requests coming from
+QEMU. It supports PCIE configuration headers, requests, memory readwrite
+operations and MSI. Different abstractions are provided to simplify the
+implementation of PCIE devices.
+
+
++--------+   +---------------------------+
+| LINUX  |   |  PCIE device in C or VHDL |
+| QEMU   |   |  PCIE layer               |
+| PCIEFW |   |  PCIE_NET layer           |
++----+---+   +------------+--------------+
+     |                    |
+     +--------------------+
+        PCIE forwarding
+       TCP based protocol
+
+
+[ installation ]
+
+[[ QEMU ]]
+clone qemu at revision
+apply the patch in qemu/xxx.diff
+it adds PCIEFW device to the hw directory and integrate to build system
+
+[[ GHDL ]]
+get GHDL from
+note this is the only version I successfully compiled on debian 64 bits
+
+[[ test with simple example ]]
+
+
+[ implementing PCIE devices ]
+
+Devices are implemented in userland processes. They communicate with
+QEMU using TCP sockets. Currently, only a point to point connection
+is possible, but this is to change in a future version. Basically, QEMU
+forwards PCIE requests to the device userland process using the PCIEFW
+and the corresponding small protocol. The protocol is minimalist and
+may lack features (esp. identifiers). Improvements will be made as
+needed. Currently, userland process have been implemented in C or VHDL
+using the GHDL frontend.
+
+A small PCIE runtime is provided for both C and VHDL. It consists of
+several layers:
+. callback based network messaging (pcie_net.c),
+. PCIE low level requests (pcie.c),
+. simple glue and packages for GHDL (pcie_xxx.vhdl).
+These layers are made to simplify the development of simple PCIE devices,
+so that one can focus on the hardware logic. They have some limitations,
+but one can still choose not to use them and directly handle low level
+PCIE and protocol details. Note that they are not
+
+
+[ random thoughts ]
+
+Not implemented with performance in mind, but it works quite well enough
+for functional testing purposes. If performances become an issue, a shared
+memory could be favored over the current TCP based transport layer if QEMU
+and the virtual device are located on the same physical machine.
+
+The VHDL pcie physical layer should be nearer than the XILINX one. Ideally,
+it should implement the same interface.
+
+
+[ acknowledgments ]
+
+This work is being developed on my time at ESRF (ISDD division), in the
+context of a fast data acquistion project financed by the CRISP wp12. More
+info here:
+http://www.esrf.eu
+http://www.crisp-fp7.eu/research-programme
+
+This work heavily relies on opensource projects, mainly:
+http://wiki.qemu.org/Main_Page
+http://ghdl.free.fr
+
+
+[ contact ]
+
+fabien.lementec@gmail.com (texane@gmail.com works too)
