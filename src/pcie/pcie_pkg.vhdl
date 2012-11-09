@@ -7,6 +7,7 @@ package pcie is
 
 constant ADDR_WIDTH: natural := 64;
 constant DATA_WIDTH: natural := 64;
+constant SIZE_WIDTH: natural := 16;
 constant BAR_WIDTH: natural := 3;
 
 component endpoint is
@@ -23,6 +24,11 @@ component endpoint is
 
   rep_en: in std_ulogic;
   rep_data: in std_ulogic_vector(DATA_WIDTH - 1 downto 0);
+
+  mwr_en: in std_ulogic;
+  mwr_addr: in std_ulogic_vector(ADDR_WIDTH - 1 downto 0);
+  mwr_data: in std_ulogic_vector(DATA_WIDTH - 1 downto 0);
+  mwr_size: in std_ulogic_vector(SIZE_WIDTH - 1 downto 0);
 
   msi_en: in std_ulogic
  );

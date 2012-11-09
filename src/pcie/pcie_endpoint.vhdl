@@ -20,6 +20,11 @@ entity endpoint is
   rep_en: in std_ulogic;
   rep_data: in std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
 
+  mwr_en: in std_ulogic;
+  mwr_addr: in std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
+  mwr_data: in std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
+  mwr_size: in std_ulogic_vector(pcie.SIZE_WIDTH - 1 downto 0);
+
   msi_en: in std_ulogic
  );
 end entity;
@@ -49,6 +54,16 @@ begin
     write(l, String'("MSI"));
     writeline(output, l);
     work.pcie.glue_send_msi;
+   end if;
+
+   -- mwr
+   if mwr_en = '1' then
+    write(l, String'("MWR"));
+    writeline(output, l);
+    var_addr := unsigned(mwr_addr);
+    var_data := unsigned(mwr_data);
+    var_size := unsigned(mwr_size);
+    work.pcie.glue_send_write(var_addr, var_data, var_size);
    end if;
 
    -- reply

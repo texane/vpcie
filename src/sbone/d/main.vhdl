@@ -148,6 +148,10 @@ begin
   req_data => req_data,
   rep_en => mux_rep_en,
   rep_data => mux_rep_data,
+  mwr_en => '0',
+  mwr_addr => (others => '0'),
+  mwr_data => (others => '0'),
+  mwr_size => (others => '0'),
   msi_en => msi_en
  );
 

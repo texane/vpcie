@@ -236,7 +236,9 @@ entity dma is
   rep_data: out std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
 
   mwr_en: out std_ulogic;
+  mwr_addr: out std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
   mwr_data: out std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
+  mwr_size: out std_ulogic_vector(pcie.SIZE_WIDTH - 1 downto 0);
 
   msi_en: out std_ulogic
  );
@@ -322,7 +324,11 @@ begin
     sta_set_en <= '1';
     ctl_clr_en <= '1';
     mwr_en <= '1';
+    mwr_addr <= dma_addr;
+    -- TODO
     mwr_data <= (others => '0');
+    mwr_size <= (others => '0');
+    -- TODO
    when done =>
     sta_set_data(31 downto 0) <= sta_set_data(31 downto 0) and x"7fffffff";
     sta_set_en <= '1';
