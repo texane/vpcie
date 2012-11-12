@@ -219,7 +219,8 @@ use work.pcie;
 entity dma is
  generic
  (
-  -- address in bar[0]
+  GENERIC_BAR: natural;
+  -- address in bar
   GENERIC_ADDR: natural := 16#00#
  );
  port
@@ -365,7 +366,7 @@ begin
  dma_reg_ctl: entity work.reg_wo
  generic map
  (
-  GENERIC_BAR => 1,
+  GENERIC_BAR => GENERIC_BAR,
   GENERIC_ADDR => 16#00#
  )
  port map
@@ -384,7 +385,7 @@ begin
  dma_reg_sta: entity work.reg_ro
  generic map
  (
-  GENERIC_BAR => 1,
+  GENERIC_BAR => GENERIC_BAR,
   GENERIC_ADDR => 16#04#
  )
  port map
@@ -405,7 +406,7 @@ begin
  dma_reg_adl: entity work.reg_wo
  generic map
  (
-  GENERIC_BAR => 1,
+  GENERIC_BAR => GENERIC_BAR,
   GENERIC_ADDR => 16#08#
  )
  port map
@@ -424,7 +425,7 @@ begin
  dma_reg_adh: entity work.reg_wo
  generic map
  (
-  GENERIC_BAR => 1,
+  GENERIC_BAR => GENERIC_BAR,
   GENERIC_ADDR => 16#0c#
  )
  port map
@@ -443,7 +444,7 @@ begin
  dma_reg_baz: entity work.reg_wo
  generic map
  (
-  GENERIC_BAR => 1,
+  GENERIC_BAR => GENERIC_BAR,
   GENERIC_ADDR => 16#10#
  )
  port map

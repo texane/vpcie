@@ -59,6 +59,10 @@ begin
  -- dma module
  dma_generate: if GENERATE_DMA = true generate
  dma_entity: entity work.dma
+ generic map
+ (
+  GENERIC_BAR => 16#01#
+ )
  port map
  (
   rst => rst,
