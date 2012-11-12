@@ -312,7 +312,6 @@ begin
  -- moore output logic
  process(dma_state)
  begin
-  rep_en <= '0';
   mwr_en <= '0';
   msi_en <= '0';
   sta_set_en <= '0';
