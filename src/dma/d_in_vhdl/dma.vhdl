@@ -268,9 +268,12 @@ architecture rtl of dma is
  signal dma_state: dma_state_t;
  signal dma_next_state: dma_state_t;
  signal dma_start: std_ulogic;
- signal dma_size: std_ulogic_vector(15 downto 0);
- signal dma_addr: std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
  signal dma_data: std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
+ signal dma_addr: unsigned(pcie.ADDR_WIDTH - 1 downto 0);
+ signal dma_size: unsigned(15 downto 0);
+ signal dma_off: unsigned(15 downto 0);
+
+ constant DMA_BLOCK_SIZE: unsigned(15 downto 0) := x"0008";
 
 begin
 
@@ -296,7 +299,7 @@ begin
     end if;
    when write =>
     dma_next_state <= write;
-    if unsigned(dma_size) = 0 then
+    if dma_off = dma_size then
      dma_next_state <= done;
     end if;
    when done =>
@@ -317,18 +320,25 @@ begin
 
   case dma_state is
    when idle =>
-    dma_size <= sta_data(15 downto 0);
-    dma_addr <= adh_data(63 downto 32) & adl_data(31 downto 0);
+    dma_off <= (others => '0');
+    dma_size <= unsigned(sta_data(15 downto 0));
+    dma_addr <= unsigned(adh_data(63 downto 32) & adl_data(31 downto 0));
    when write =>
-    sta_set_data(31 downto 0) <= x"8000" & dma_size;
+    sta_set_data(31 downto 0) <= x"8000" & std_ulogic_vector(dma_off);
     sta_set_en <= '1';
     ctl_clr_en <= '1';
     mwr_en <= '1';
-    mwr_addr <= dma_addr;
+    mwr_addr <= std_ulogic_vector(dma_addr);
+
     -- TODO
     mwr_data <= (others => '0');
-    mwr_size <= (others => '0');
+    mwr_size <= std_ulogic_vector(DMA_BLOCK_SIZE);
     -- TODO
+
+    -- update dma addr and offset
+    dma_off <= dma_off + DMA_BLOCK_SIZE;
+    dma_addr <= dma_addr + DMA_BLOCK_SIZE;
+
    when done =>
     sta_set_data(31 downto 0) <= sta_set_data(31 downto 0) and x"7fffffff";
     sta_set_en <= '1';

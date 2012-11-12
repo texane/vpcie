@@ -478,7 +478,11 @@ int main(int ac, char** av)
   {
     if (dma_open(&h[j])) goto on_error_0;
 
+#if 0
 #define CONFIG_MEM_SIZE (32 * 1024) /* in bytes */
+#else
+#define CONFIG_MEM_SIZE (1 * 1024) /* in bytes */
+#endif
     if (dma_alloc_buf(&h[j], &buf[j], CONFIG_MEM_SIZE))
       goto on_error_2;
 
