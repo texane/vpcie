@@ -91,9 +91,6 @@ begin
     if var_is_read = "00" then
      req_data <= std_ulogic_vector(var_data);
      req_wr <= '1';
-     write(l, String'("write: "));
-     write(l, integer'image(to_integer(var_data)));
-     writeline(output, l);
     end if;
 
    end if; -- var_size

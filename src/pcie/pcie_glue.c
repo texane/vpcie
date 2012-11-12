@@ -452,6 +452,7 @@ void pcie_glue_poll_rx_fifo
     {
       uint64_t x = 0;
       memcpy(&x, node->u.bar_access.data, node->u.bar_access.size);
+      PRINTF(". data: 0x%lx\n", x);
       uint64_to_logic(x, data);
       free(node);
     }

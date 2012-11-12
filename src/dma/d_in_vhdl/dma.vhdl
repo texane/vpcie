@@ -212,6 +212,7 @@ end rtl;
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use std.textio.all;
 use work.pcie;
 
 
@@ -277,7 +278,7 @@ architecture rtl of dma is
 
 begin
 
- dma_start <= ctl_data(31) and '1';
+ dma_start <= ctl_data(31);
 
  -- state register
  process(rst, clk)
@@ -291,20 +292,29 @@ begin
 
  -- next state logic
  process(dma_state, ctl_data)
+  variable l: line;
  begin
   case dma_state is
    when idle =>
+    write(l, String'("idle"));
+    writeline(output, l);
     if dma_start = '1' then
      dma_next_state <= write;
     end if;
    when write =>
+    write(l, String'("write"));
+    writeline(output, l);
     dma_next_state <= write;
     if dma_off = dma_size then
      dma_next_state <= done;
     end if;
    when done =>
+    write(l, String'("done"));
+    writeline(output, l);
     dma_next_state <= idle;
    when others =>
+    write(l, String'("others"));
+    writeline(output, l);
     dma_next_state <= idle;
   end case;
  end process;
@@ -341,6 +351,11 @@ begin
    when done =>
     sta_set_data(31 downto 0) <= sta_set_data(31 downto 0) and x"7fffffff";
     sta_set_en <= '1';
+
+    -- TODO: look for msi_en in ctl register
+    msi_en <= '1';
+    -- TODO: look for msi_en in ctl register
+
    when others =>
   end case;
  end process;

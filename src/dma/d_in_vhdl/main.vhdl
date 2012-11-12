@@ -8,6 +8,7 @@ architecture rtl of main is
  -- generate options
  constant GENERATE_RST_CLK: boolean := true;
  constant GENERATE_STIMULI: boolean := false;
+ constant GENERATE_DMA: boolean := true;
 
  -- synchronous logic
  signal rst: std_ulogic := '0';
@@ -56,6 +57,7 @@ begin
  );
 
  -- dma module
+ dma_generate: if GENERATE_DMA = true generate
  dma_entity: entity work.dma
  port map
  (
@@ -73,6 +75,7 @@ begin
   mwr_data => mwr_data,
   msi_en => msi_en
  );
+ end generate;
 
  -- reset and clock generation
  rst_clk_generate_1: if GENERATE_RST_CLK = true generate
