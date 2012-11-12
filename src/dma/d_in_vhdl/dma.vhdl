@@ -200,7 +200,7 @@ end rtl;
 --
 -- dma engine
 --
--- bar[0] 32 bits registers:
+-- bar[1] 32 bits registers:
 -- 0. DMA_REG_CTL
 -- 1. DMA_REG_STA
 -- 2. DMA_REG_ADL

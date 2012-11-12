@@ -6,7 +6,7 @@
 
 /* simple dma engine
 
-   bar[0] 32 bits registers:
+   bar[1] 32 bits registers:
    0. DMA_REG_CTL
    1. DMA_REG_STA
    2. DMA_REG_ADL
@@ -196,7 +196,7 @@ int main(int ac, char** av)
 
   pcie_set_vendorid(&dma.dev, 0x2a2a);
   pcie_set_deviceid(&dma.dev, 0x2b2b);
-  pcie_set_bar(&dma.dev, 0, 0x100, on_read, on_write, &dma);
+  pcie_set_bar(&dma.dev, 1, 0x100, on_read, on_write, &dma);
 
   pcie_loop(&dma.dev);
 

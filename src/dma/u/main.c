@@ -227,7 +227,7 @@ static int dma_start_read(dma_handle_t* h, dma_io_t* io, dma_buf_t* buf)
 {
   /* initiate a dma read transfer into buf */
 
-#define DMA_REG_BAR 0x00
+#define DMA_REG_BAR 0x01
 #define DMA_REG_CTL 0x00
 #define DMA_REG_STA 0x04
 #define DMA_REG_ADL 0x08
@@ -481,7 +481,7 @@ int main(int ac, char** av)
 #if 0
 #define CONFIG_MEM_SIZE (32 * 1024) /* in bytes */
 #else
-#define CONFIG_MEM_SIZE (1 * 1024) /* in bytes */
+#define CONFIG_MEM_SIZE (4 * 1024) /* in bytes */
 #endif
     if (dma_alloc_buf(&h[j], &buf[j], CONFIG_MEM_SIZE))
       goto on_error_2;
