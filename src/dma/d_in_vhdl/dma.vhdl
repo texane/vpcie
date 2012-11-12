@@ -269,7 +269,6 @@ architecture rtl of dma is
  attribute enum_encoding of dma_state_t : type is ("001 010 100");
  signal dma_state: dma_state_t;
  signal dma_next_state: dma_state_t;
- signal dma_start: std_ulogic;
  signal dma_data: std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
  signal dma_addr: unsigned(pcie.ADDR_WIDTH - 1 downto 0);
  signal dma_size: unsigned(15 downto 0);
@@ -278,8 +277,6 @@ architecture rtl of dma is
  constant DMA_BLOCK_SIZE: unsigned(15 downto 0) := x"0008";
 
 begin
-
- dma_start <= ctl_data(31);
 
  -- state register
  process(rst, clk)
@@ -297,24 +294,34 @@ begin
  begin
   case dma_state is
    when idle =>
-    write(l, String'("idle"));
+    write(l, String'("idle_to_idle"));
     writeline(output, l);
-    if dma_start = '1' then
+    write(l, std_ulogic'image(ctl_data(31)));
+    write(l, String'(", "));
+    write(l, integer'image(to_integer(unsigned(ctl_data(30 downto 0)))));
+    writeline(output, l);
+
+    dma_next_state <= idle;
+    if ctl_data(31) = '1' then
+     write(l, String'("idle_to_write"));
+     writeline(output, l);
      dma_next_state <= write;
     end if;
    when write =>
-    write(l, String'("write"));
+    write(l, String'("write_to_write"));
     writeline(output, l);
     dma_next_state <= write;
     if dma_off = dma_size then
+     write(l, String'("write_to_done"));
+     writeline(output, l);
      dma_next_state <= done;
     end if;
    when done =>
-    write(l, String'("done"));
+    write(l, String'("done_to_idle"));
     writeline(output, l);
     dma_next_state <= idle;
    when others =>
-    write(l, String'("others"));
+    write(l, String'("others_to_idle"));
     writeline(output, l);
     dma_next_state <= idle;
   end case;
@@ -322,6 +329,7 @@ begin
 
  -- moore output logic
  process(dma_state)
+  variable l: line;
  begin
   mwr_en <= '0';
   msi_en <= '0';
@@ -330,10 +338,18 @@ begin
 
   case dma_state is
    when idle =>
+
+    write(l, String'("dma_state_idle"));
+    writeline(output, l);
+
     dma_off <= (others => '0');
     dma_size <= unsigned(sta_data(15 downto 0));
     dma_addr <= unsigned(adh_data(63 downto 32) & adl_data(31 downto 0));
    when write =>
+
+    write(l, String'("dma_state_write"));
+    writeline(output, l);
+
     sta_set_data(31 downto 0) <= x"8000" & std_ulogic_vector(dma_off);
     sta_set_en <= '1';
     ctl_clr_en <= '1';
@@ -350,6 +366,10 @@ begin
     dma_addr <= dma_addr + DMA_BLOCK_SIZE;
 
    when done =>
+
+    write(l, String'("dma_state_done"));
+    writeline(output, l);
+
     sta_set_data(31 downto 0) <= sta_set_data(31 downto 0) and x"7fffffff";
     sta_set_en <= '1';
 
@@ -358,6 +378,10 @@ begin
     -- TODO: look for msi_en in ctl register
 
    when others =>
+
+    write(l, String'("dma_state_others"));
+    writeline(output, l);
+
   end case;
  end process;
 
