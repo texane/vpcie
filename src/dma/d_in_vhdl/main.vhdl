@@ -77,6 +77,7 @@ begin
   mwr_en => mwr_en,
   mwr_addr => mwr_addr,
   mwr_data => mwr_data,
+  mwr_size => mwr_size,
   msi_en => msi_en
  );
  end generate;

@@ -146,7 +146,7 @@ static inline int write_bar_unsafe
 
 static inline uint32_t read_sta(kdma_dev_t* dev)
 {
-#define DMA_REG_BAR 0x00
+#define DMA_REG_BAR 0x01
 #define DMA_REG_CTL 0x00
 #define DMA_REG_STA 0x04
 #define DMA_REG_ADL 0x08

@@ -302,10 +302,20 @@ static void reset_buffer(dma_buf_t* buf)
   for (i = 0; i < buf->size; ++i) buf->vaddr[i] = 0x2a;
 }
 
+static inline  uint64_t expand_uint8_to_uint64(uint8_t x)
+{
+  const uint64_t xx = (uint64_t)x;
+
+  return
+    (xx <<  0) | (xx <<  8) | (xx << 16) | (xx << 24) |
+    (xx << 32) | (xx << 40) | (xx << 48) | (xx << 56);
+}
+
 static int check_buf(const dma_buf_t* buf, unsigned int baz)
 {
   unsigned int i;
 
+#if 0 /* use for C device */
   for (i = 0; i < buf->size; ++i)
   {
     /* increasing pattern filled by main_dma */
@@ -315,6 +325,18 @@ static int check_buf(const dma_buf_t* buf, unsigned int baz)
       return -1;
     }
   }
+#else /* use for VHDL device */
+  for (i = 0; i < buf->size / sizeof(uint64_t); ++i)
+  {
+    const uint64_t x = ((const uint64_t*)buf->vaddr)[i];
+
+    if (x != expand_uint8_to_uint64((uint8_t)(i * 8)))
+    {
+      printf("check_buf error at %u 0x%lx\n", i, x);
+      return -1;
+    }
+  }
+#endif /* use for X device */
 
   return 0;
 }
@@ -491,7 +513,7 @@ int main(int ac, char** av)
 
   total_usecs = 0;
 
-  for (i = 0; 1; ++i)
+  for (i = 0; i < 1; ++i)
   {
     /* reset memories */
     for (j = 0; j < ndev; ++j)

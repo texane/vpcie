@@ -183,8 +183,11 @@ begin
    -- always disable, even if not selected
    rep_en <= '0';
 
+   -- forced update
+   if set_en = '1' then
+    data <= set_data;
    -- is_en when read request
-   if is_en = '1' then
+   elsif is_en = '1' then
     rep_data <= data;
     rep_en <= '1';
    end if; -- is_en
@@ -195,6 +198,60 @@ begin
  end process;
 
 end rtl;
+
+
+--
+-- log2 function
+--
+
+--
+-- d = s * log2(x)
+--
+
+package util is
+ function log2(x: natural) return natural;
+end package util;
+
+package body util is
+ function log2(x: natural) return natural is
+ begin
+  -- Works for up to 32 bit integers
+  for i in 1 to 30 loop
+   if(2 ** i > x) then
+    return (i - 1);
+   end if;
+  end loop;
+  return(30);
+end function log2;
+end package body util;
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity mul_pow2 is
+ generic
+ (
+  GENERIC_SIZE: natural;
+  GENERIC_X: natural
+ );
+ port
+ (
+  s: in unsigned(GENERIC_SIZE - 1 downto 0);
+  d: out unsigned(GENERIC_SIZE - 1 downto 0)
+ );
+end entity;
+
+architecture rtl of mul_pow2 is
+ constant log2x: natural := work.util.log2(GENERIC_X);
+begin
+ process(s)
+ begin
+  d(GENERIC_SIZE - 1 downto log2x) <= s(GENERIC_SIZE - 1 - log2x downto 0);
+  d(log2x - 1 downto 0) <= (others => '0');
+ end process;
+end rtl;
+
 
 
 --
@@ -264,19 +321,44 @@ architecture rtl of dma is
  signal ctl_clr_en: std_ulogic;
 
  -- dma engine
- type dma_state_t is (idle, write, done);
+ type dma_state_t is (idle, write_start, write_one, write_next, write_done);
  attribute enum_encoding: string;
- attribute enum_encoding of dma_state_t : type is ("001 010 100");
+ attribute enum_encoding of dma_state_t :
+  type is ("00001 00010 00100 01000 10000");
  signal dma_state: dma_state_t;
  signal dma_next_state: dma_state_t;
  signal dma_data: std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
  signal dma_addr: unsigned(pcie.ADDR_WIDTH - 1 downto 0);
  signal dma_size: unsigned(15 downto 0);
+ signal dma_msi_en: std_ulogic;
+
+ -- current destination pointer and offset
+ signal dma_ptr: unsigned(pcie.ADDR_WIDTH - 1 downto 0);
  signal dma_off: unsigned(15 downto 0);
 
- constant DMA_BLOCK_SIZE: unsigned(15 downto 0) := x"0008";
+ -- dma counter
+ signal dma_counter_reg: unsigned(15 downto 0);
+ signal dma_counter_clr: std_ulogic;
+ signal dma_counter_en: std_ulogic; 
+
+ constant DMA_BLOCK_SIZE: natural := 8;
 
 begin
+
+ -- equivlaent to dma_off = dma_counter_reg * DMA_BLOCK_SIZE
+ mul_pow2_entity: entity work.mul_pow2
+ generic map
+ (
+  GENERIC_SIZE => 16,
+  GENERIC_X => DMA_BLOCK_SIZE
+ )
+ port map
+ (
+  s => dma_counter_reg,
+  d => dma_off
+ );
+
+ dma_ptr <= dma_addr + dma_off;
 
  -- state register
  process(rst, clk)
@@ -293,6 +375,7 @@ begin
   variable l: line;
  begin
   case dma_state is
+
    when idle =>
     write(l, String'("idle_to_idle"));
     writeline(output, l);
@@ -305,25 +388,39 @@ begin
     if ctl_data(31) = '1' then
      write(l, String'("idle_to_write"));
      writeline(output, l);
-     dma_next_state <= write;
+     dma_next_state <= write_start;
     end if;
-   when write =>
-    write(l, String'("write_to_write"));
+
+   when write_start =>
+    write(l, String'("write_start_to_write"));
     writeline(output, l);
-    dma_next_state <= write;
+    dma_next_state <= write_one;
+
+   when write_one =>
+    write(l, String'("one_to_next"));
+    writeline(output, l);
+    dma_next_state <= write_next;
+
+   when write_next =>
+    write(l, String'("next_to_one"));
+    writeline(output, l);
+    dma_next_state <= write_one;
     if dma_off = dma_size then
-     write(l, String'("write_to_done"));
+     write(l, String'("next_to_done"));
      writeline(output, l);
-     dma_next_state <= done;
+     dma_next_state <= write_done;
     end if;
-   when done =>
+
+   when write_done =>
     write(l, String'("done_to_idle"));
     writeline(output, l);
     dma_next_state <= idle;
+
    when others =>
     write(l, String'("others_to_idle"));
     writeline(output, l);
     dma_next_state <= idle;
+
   end case;
  end process;
 
@@ -331,6 +428,8 @@ begin
  process(dma_state)
   variable l: line;
  begin
+  dma_counter_clr <= '0';
+  dma_counter_en <= '0';
   mwr_en <= '0';
   msi_en <= '0';
   sta_set_en <= '0';
@@ -342,40 +441,58 @@ begin
     write(l, String'("dma_state_idle"));
     writeline(output, l);
 
-    dma_off <= (others => '0');
-    dma_size <= unsigned(sta_data(15 downto 0));
-    dma_addr <= unsigned(adh_data(63 downto 32) & adl_data(31 downto 0));
-   when write =>
+   when write_start =>
 
-    write(l, String'("dma_state_write"));
+    dma_size <= unsigned(ctl_data(15 downto 0));
+    dma_addr <= unsigned(adh_data(31 downto 0) & adl_data(31 downto 0));
+    dma_counter_clr <= '1';
+
+    sta_set_data(31 downto 0) <= x"00000000";
+    sta_set_en <= '1';
+
+    dma_msi_en <= ctl_data(30);
+    ctl_clr_en <= '1';
+
+    write(l, String'("dma_state_write_start"));
+    write(l, String'("dma_size "));
+    write(l, integer'image(to_integer(dma_size)));
+    writeline(output, l);
+
+   when write_one =>
+
+    write(l, String'("write_one "));
+
+    mwr_addr <= std_ulogic_vector(dma_ptr);
+
+    mwr_data(7 downto 0) <= std_ulogic_vector(dma_off(7 downto 0));
+    mwr_data(15 downto 8) <= std_ulogic_vector(dma_off(7 downto 0));
+    mwr_data(23 downto 16) <= std_ulogic_vector(dma_off(7 downto 0));
+    mwr_data(31 downto 24) <= std_ulogic_vector(dma_off(7 downto 0));
+    mwr_data(39 downto 32) <= std_ulogic_vector(dma_off(7 downto 0));
+    mwr_data(47 downto 40) <= std_ulogic_vector(dma_off(7 downto 0));
+    mwr_data(55 downto 48) <= std_ulogic_vector(dma_off(7 downto 0));
+    mwr_data(63 downto 56) <= std_ulogic_vector(dma_off(7 downto 0));
+
+    mwr_size <= std_ulogic_vector(to_unsigned(DMA_BLOCK_SIZE, pcie.SIZE_WIDTH));
+
+    mwr_en <= '1';
+
+   when write_next =>
+
+    write(l, String'("write_next"));
+    writeline(output, l);
+
+    dma_counter_en <= '1';
+
+   when write_done =>
+
+    write(l, String'("write_done"));
     writeline(output, l);
 
     sta_set_data(31 downto 0) <= x"8000" & std_ulogic_vector(dma_off);
     sta_set_en <= '1';
-    ctl_clr_en <= '1';
-    mwr_en <= '1';
-    mwr_addr <= std_ulogic_vector(dma_addr);
 
-    -- TODO
-    mwr_data <= (others => '0');
-    mwr_size <= std_ulogic_vector(DMA_BLOCK_SIZE);
-    -- TODO
-
-    -- update dma addr and offset
-    dma_off <= dma_off + DMA_BLOCK_SIZE;
-    dma_addr <= dma_addr + DMA_BLOCK_SIZE;
-
-   when done =>
-
-    write(l, String'("dma_state_done"));
-    writeline(output, l);
-
-    sta_set_data(31 downto 0) <= sta_set_data(31 downto 0) and x"7fffffff";
-    sta_set_en <= '1';
-
-    -- TODO: look for msi_en in ctl register
-    msi_en <= '1';
-    -- TODO: look for msi_en in ctl register
+    msi_en <= dma_msi_en;
 
    when others =>
 
@@ -383,6 +500,20 @@ begin
     writeline(output, l);
 
   end case;
+ end process;
+
+ -- dma counter
+ process(rst, clk)
+ begin
+  if rst = '1' then
+   dma_counter_reg <= (others => '0');
+  elsif rising_edge(clk) then
+   if dma_counter_clr = '1' then
+    dma_counter_reg <= (others => '0');
+   elsif dma_counter_en = '1' then
+    dma_counter_reg <= dma_counter_reg + 1;
+   end if;
+  end if;
  end process;
 
  -- registers instanciation
