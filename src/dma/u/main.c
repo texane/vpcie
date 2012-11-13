@@ -500,11 +500,7 @@ int main(int ac, char** av)
   {
     if (dma_open(&h[j])) goto on_error_0;
 
-#if 0
 #define CONFIG_MEM_SIZE (32 * 1024) /* in bytes */
-#else
-#define CONFIG_MEM_SIZE (4 * 1024) /* in bytes */
-#endif
     if (dma_alloc_buf(&h[j], &buf[j], CONFIG_MEM_SIZE))
       goto on_error_2;
 
@@ -513,7 +509,8 @@ int main(int ac, char** av)
 
   total_usecs = 0;
 
-  for (i = 0; i < 1; ++i)
+  /* infinite loop */
+  for (i = 0; 1; ++i)
   {
     /* reset memories */
     for (j = 0; j < ndev; ++j)
