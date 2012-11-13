@@ -379,6 +379,8 @@ void pcie_glue_send_write
   const uint64_t data = logic_to_uint64(_data);
   const uint16_t data_size = logic_to_uint16(_data_size);
 
+  PRINTF("%s, 0x%lx(%u) @0x%lx\n", __FUNCTION__, data, data_size, addr);
+
   node = alloc_write_node(PCIE_NET_OP_WRITE_MEM, addr, data_size);
   memcpy(node->u.msg.data, &data, data_size);
 
@@ -394,7 +396,7 @@ void pcie_glue_send_reply(const uint8_t* _data)
   fnode_t* const node = c->reply_node;
   const uint64_t data = logic_to_uint64(_data);
 
-  PRINTF("%s\n", __FUNCTION__);
+  PRINTF("%s, 0x%lx\n", __FUNCTION__, data);
 
   /* should_not_occur */
   if (node == NULL)
