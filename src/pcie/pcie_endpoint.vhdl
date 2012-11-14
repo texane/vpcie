@@ -22,7 +22,7 @@ entity endpoint is
 
   mwr_en: in std_ulogic;
   mwr_addr: in std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
-  mwr_data: in std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
+  mwr_data: in std_ulogic_vector(pcie.PAYLOAD_WIDTH - 1 downto 0);
   mwr_size: in std_ulogic_vector(pcie.SIZE_WIDTH - 1 downto 0);
 
   msi_en: in std_ulogic
@@ -40,6 +40,7 @@ begin
   variable var_addr: unsigned(63 downto 0);
   variable var_data: unsigned(63 downto 0);
   variable var_size: unsigned(15 downto 0);
+  variable var_mwr_data: unsigned(pcie.PAYLOAD_WIDTH - 1 downto 0);
  begin
   if rst = '1' then
   elsif rising_edge(clk) then
@@ -61,9 +62,9 @@ begin
     write(l, String'("MWR"));
     writeline(output, l);
     var_addr := unsigned(mwr_addr);
-    var_data := unsigned(mwr_data);
+    var_mwr_data := unsigned(mwr_data);
     var_size := unsigned(mwr_size);
-    work.pcie.glue_send_write(var_addr, var_data, var_size);
+    work.pcie.glue_send_write(var_addr, var_mwr_data, var_size);
    end if;
 
    -- reply

@@ -302,15 +302,6 @@ static void reset_buffer(dma_buf_t* buf)
   for (i = 0; i < buf->size; ++i) buf->vaddr[i] = 0x2a;
 }
 
-static inline  uint64_t expand_uint8_to_uint64(uint8_t x)
-{
-  const uint64_t xx = (uint64_t)x;
-
-  return
-    (xx <<  0) | (xx <<  8) | (xx << 16) | (xx << 24) |
-    (xx << 32) | (xx << 40) | (xx << 48) | (xx << 56);
-}
-
 static int check_buf(const dma_buf_t* buf, unsigned int baz)
 {
   unsigned int i;
@@ -326,16 +317,17 @@ static int check_buf(const dma_buf_t* buf, unsigned int baz)
     }
   }
 #else /* use for VHDL device */
-  for (i = 0; i < buf->size / sizeof(uint64_t); ++i)
-  {
-    const uint64_t x = ((const uint64_t*)buf->vaddr)[i];
 
-    if (x != expand_uint8_to_uint64((uint8_t)(i * 8)))
+#define PCIE_PAYLOAD_WIDTH 128
+  for (i = 0; i < buf->size; ++i)
+  {
+    if (buf->vaddr[i] != (uint8_t)baz)
     {
-      printf("check_buf error at %u 0x%lx\n", i, x);
+      printf("check_buf error at %u 0x%x\n", i, buf->vaddr[i]);
       return -1;
     }
   }
+
 #endif /* use for X device */
 
   return 0;

@@ -296,7 +296,7 @@ entity dma is
 
   mwr_en: out std_ulogic;
   mwr_addr: out std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
-  mwr_data: out std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
+  mwr_data: out std_ulogic_vector(pcie.PAYLOAD_WIDTH - 1 downto 0);
   mwr_size: out std_ulogic_vector(pcie.SIZE_WIDTH - 1 downto 0);
 
   msi_en: out std_ulogic
@@ -327,7 +327,7 @@ architecture rtl of dma is
   type is ("00001 00010 00100 01000 10000");
  signal dma_state: dma_state_t;
  signal dma_next_state: dma_state_t;
- signal dma_data: std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
+ signal dma_data: std_ulogic_vector(pcie.PAYLOAD_WIDTH - 1 downto 0);
  signal dma_addr: unsigned(pcie.ADDR_WIDTH - 1 downto 0);
  signal dma_size: unsigned(15 downto 0);
  signal dma_msi_en: std_ulogic;
@@ -341,7 +341,7 @@ architecture rtl of dma is
  signal dma_counter_clr: std_ulogic;
  signal dma_counter_en: std_ulogic; 
 
- constant DMA_BLOCK_SIZE: natural := 8;
+ constant DMA_BLOCK_SIZE: natural := pcie.PAYLOAD_WIDTH / 8;
 
 begin
 
@@ -359,6 +359,11 @@ begin
  );
 
  dma_ptr <= dma_addr + dma_off;
+
+ mwr_data_generate: for i in 0 to (DMA_BLOCK_SIZE - 1) generate
+  mwr_data(((i + 1) * 8 - 1) downto (i * 8)) <= baz_data(7 downto 0);
+  -- std_ulogic_vector(dma_off(7 downto 0));
+ end generate;
 
  -- state register
  process(rst, clk)
@@ -463,18 +468,7 @@ begin
     write(l, String'("write_one "));
 
     mwr_addr <= std_ulogic_vector(dma_ptr);
-
-    mwr_data(7 downto 0) <= std_ulogic_vector(dma_off(7 downto 0));
-    mwr_data(15 downto 8) <= std_ulogic_vector(dma_off(7 downto 0));
-    mwr_data(23 downto 16) <= std_ulogic_vector(dma_off(7 downto 0));
-    mwr_data(31 downto 24) <= std_ulogic_vector(dma_off(7 downto 0));
-    mwr_data(39 downto 32) <= std_ulogic_vector(dma_off(7 downto 0));
-    mwr_data(47 downto 40) <= std_ulogic_vector(dma_off(7 downto 0));
-    mwr_data(55 downto 48) <= std_ulogic_vector(dma_off(7 downto 0));
-    mwr_data(63 downto 56) <= std_ulogic_vector(dma_off(7 downto 0));
-
     mwr_size <= std_ulogic_vector(to_unsigned(DMA_BLOCK_SIZE, pcie.SIZE_WIDTH));
-
     mwr_en <= '1';
 
    when write_next =>

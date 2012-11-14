@@ -31,7 +31,7 @@ package pcie_glue is
  procedure pcie_glue_send_write
  (
   addr: in unsigned(63 downto 0);
-  data: in unsigned(63 downto 0);
+  data: in unsigned(256 - 1 downto 0);
   size: in unsigned(15 downto 0)
  );
  attribute foreign of pcie_glue_send_write:
@@ -81,7 +81,7 @@ package body pcie_glue is
  procedure pcie_glue_send_write
  (
   addr: in unsigned(63 downto 0);
-  data: in unsigned(63 downto 0);
+  data: in unsigned(256 - 1 downto 0);
   size: in unsigned(15 downto 0)
  )
  is begin

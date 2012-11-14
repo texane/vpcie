@@ -28,7 +28,7 @@ architecture rtl of main is
  -- from dma memory write
  signal mwr_en: std_ulogic;
  signal mwr_addr: std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
- signal mwr_data: std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
+ signal mwr_data: std_ulogic_vector(pcie.PAYLOAD_WIDTH - 1 downto 0);
  signal mwr_size: std_ulogic_vector(pcie.SIZE_WIDTH - 1 downto 0);
 
  -- reg_rw_msi

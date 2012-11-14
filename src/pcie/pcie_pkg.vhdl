@@ -9,6 +9,7 @@ constant ADDR_WIDTH: natural := 64;
 constant DATA_WIDTH: natural := 64;
 constant SIZE_WIDTH: natural := 16;
 constant BAR_WIDTH: natural := 3;
+constant PAYLOAD_WIDTH: natural := 1024;
 
 component endpoint is
  port
@@ -27,7 +28,7 @@ component endpoint is
 
   mwr_en: in std_ulogic;
   mwr_addr: in std_ulogic_vector(ADDR_WIDTH - 1 downto 0);
-  mwr_data: in std_ulogic_vector(DATA_WIDTH - 1 downto 0);
+  mwr_data: in std_ulogic_vector(PAYLOAD_WIDTH - 1 downto 0);
   mwr_size: in std_ulogic_vector(SIZE_WIDTH - 1 downto 0);
 
   msi_en: in std_ulogic
@@ -61,7 +62,7 @@ attribute foreign of glue_send_msi:
 procedure glue_send_write
 (
  addr: in unsigned(63 downto 0);
- data: in unsigned(63 downto 0);
+ data: in unsigned(pcie.PAYLOAD_WIDTH - 1 downto 0);
  size: in unsigned(15 downto 0)
 );
 attribute foreign of glue_send_write:
@@ -113,7 +114,7 @@ end glue_send_msi;
 procedure glue_send_write
 (
  addr: in unsigned(63 downto 0);
- data: in unsigned(63 downto 0);
+ data: in unsigned(pcie.PAYLOAD_WIDTH - 1 downto 0);
  size: in unsigned(15 downto 0)
 )
 is begin
