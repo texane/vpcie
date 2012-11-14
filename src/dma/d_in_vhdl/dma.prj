@@ -1,0 +1,6 @@
+vhdl work ../../pcie/pcie_pkg.vhdl
+vhdl work ../../pcie/pcie_endpoint.vhdl
+vhdl work rst_clk.vhdl
+vhdl work stimul.vhdl
+vhdl work dma.vhdl
+vhdl work main.vhdl

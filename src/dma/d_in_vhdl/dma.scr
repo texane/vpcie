@@ -1,0 +1,9 @@
+run
+-ifn dma.prj
+-ofn dma.ngc
+-top dma
+-p xc6slx100t-fgg484-2
+-opt_mode speed
+-opt_level 1
+-iobuf YES
+-iob TRUE

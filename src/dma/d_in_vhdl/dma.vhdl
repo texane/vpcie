@@ -276,7 +276,7 @@ use work.pcie;
 entity dma is
  generic
  (
-  GENERIC_BAR: natural;
+  GENERIC_BAR: natural := 0;
   -- address in bar
   GENERIC_ADDR: natural := 16#00#
  );
@@ -384,10 +384,6 @@ begin
    when idle =>
     write(l, String'("idle_to_idle"));
     writeline(output, l);
-    write(l, std_ulogic'image(ctl_data(31)));
-    write(l, String'(", "));
-    write(l, integer'image(to_integer(unsigned(ctl_data(30 downto 0)))));
-    writeline(output, l);
 
     dma_next_state <= idle;
     if ctl_data(31) = '1' then
@@ -459,8 +455,6 @@ begin
     ctl_clr_en <= '1';
 
     write(l, String'("dma_state_write_start"));
-    write(l, String'("dma_size "));
-    write(l, integer'image(to_integer(dma_size)));
     writeline(output, l);
 
    when write_one =>

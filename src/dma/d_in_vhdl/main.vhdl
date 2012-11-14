@@ -9,6 +9,7 @@ architecture rtl of main is
  constant GENERATE_RST_CLK: boolean := true;
  constant GENERATE_STIMULI: boolean := false;
  constant GENERATE_DMA: boolean := true;
+ constant GENERATE_PCIE: boolean := true;
 
  -- synchronous logic
  signal rst: std_ulogic := '0';
@@ -37,6 +38,7 @@ architecture rtl of main is
 begin
 
  -- pcie endpoint
+ pcie_generate: if GENERATE_PCIE = true generate
  pcie_endpoint: pcie.endpoint
  port map
  (
@@ -55,6 +57,7 @@ begin
   mwr_size => mwr_size,
   msi_en => msi_en
  );
+ end generate;
 
  -- dma module
  dma_generate: if GENERATE_DMA = true generate
