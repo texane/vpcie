@@ -240,6 +240,9 @@ static int dma_start_read(dma_handle_t* h, dma_io_t* io, dma_buf_t* buf)
 
   io->buf = buf;
 
+  /* clear pending interrupt */
+  pci_dev_poll_int(h->fd, &x);
+
   /* synchronize physical memory with cache hierarchy */
   dma_sync_pmem(h, buf);
 
