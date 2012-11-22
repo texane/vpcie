@@ -866,13 +866,13 @@ static int pmem_alloc(uintptr_t* paddr, size_t size, int nid)
 
   if (nid < 0) /* node does not matter */
   {
-    vaddr = __get_free_pages(GFP_ATOMIC | GFP_DMA32, order);
+    vaddr = __get_free_pages(GFP_ATOMIC, order);
     if (vaddr == 0) return -ENOMEM;
   }
   else /* allocate on node nid */
   {
     struct page* const page =
-      alloc_pages_exact_node(nid, GFP_ATOMIC | GFP_DMA32, order);
+      alloc_pages_exact_node(nid, GFP_ATOMIC, order);
     if (page == NULL) return -ENOMEM;
     vaddr = (unsigned long)page_address(page);
   }
