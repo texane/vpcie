@@ -1,0 +1,167 @@
+* rationale
+-----------
+
+PCIE access forwarding was made to implement a PCIE endpoint in a process
+external to QEMU, possibly on a remote host. The main reason is to allow
+interfacing QEMU with PCIE devices simulated in a third party environment.
+Being an external process also has several benefits: independence from the
+QEMU event loop, using compilation tools not supported by the QEMU build
+system ...
+
+
+
+* usage
+-------
+
+PCIEFW devices are instanciated using the following QEMU options:
+-device \
+ pciefw,\
+ laddr=<local_addr>,\
+ lport=<local_port>,\
+ raddr=<remote_addr>,\
+ rport=<remote_port>
+
+
+
+* theory of operation
+---------------------
+
+PCIEFW is a PCIE accesses forwarding device added to the QEMU source
+tree. At initialization, this device opens a bidirectionnal point to
+point communication channel with an external process. This process
+actually implements the PCIE endpoint. That is, a PCIE access made by
+QEMU is forwarded to the process. Reciprocally, replies and accesses
+messages from the process are forwarded to QEMU.
+
+
+
+* communication protocol
+------------------------
+
+The communication assumes a reliable transport layer. Currently, a
+bidirectionnal point to point TCP socket based channel is used. Byte
+ordering is little endian.
+
+
+** communication messages
+-------------------------
+
+A protocol message always starts with a header:
+
+typedef struct pciefw_header
+{
+  uint16_t size;
+
+#define PCIEFW_TYPE_INIT_REQ 0x00
+#define PCIEFW_TYPE_INIT_REP 0x01
+#define PCIEFW_TYPE_ACCESS_REQ 0x02
+#define PCIEFW_TYPE_ACCESS_REP 0x03
+  uint8_t type;
+
+} __attribute__((packed)) pciefw_header_t;
+
+Where:
+. size is the total message size,
+. type is the message type, one of PCIEFW_TYPE_XXX.
+
+
+** initialization sequence
+--------------------------
+
+At initialization, QEMU sends an initialization message:
+
+typedef pciefw_init_req
+{
+  pciefw_header_t header;
+  uint8_t version;
+} __attribute__((packed)) pciefw_init_req_t;
+
+Where:
+. version is used to identify the protocol version.
+
+The process answers with a pciefw_init_rep message:
+
+typedef pciefw_init_rep
+{
+  pciefw_header_t header;
+
+#define PCIEFW_STATUS_SUCCESS 0x00
+#define PCIEFW_STATUS_FAILURE 0xff
+  uint8_t status;
+
+} __attribute__((packed)) pciefw_init_rep_t;
+
+Where:
+. status if not PCIEFW_STATUS_SUCCESS, indicates the protocol is
+not supported and no further communication should be attempted.
+
+
+** access messages
+------------------
+
+PCIEFW initiates a request upon access from QEMU. It sends a message
+whose format is described by the pciefw_access_req_t type:
+
+typedef struct pciefw_access_req
+{
+#define PCIEFW_ACCESS_MAX_SIZE (offsetof(pciefw_msg_t, data) + 0x1000)
+
+  pciefw_header_t header;
+  uint32_t tag;
+
+#define PCIEFW_OP_READ_CONFIG 0
+#define PCIEFW_OP_WRITE_CONFIG 1
+#define PCIEFW_OP_READ_MEM 2
+#define PCIEFW_OP_WRITE_MEM 3
+#define PCIEFW_OP_READ_IO 4
+#define PCIEFW_OP_WRITE_IO 5
+#define PCIEFW_OP_INT 6
+#define PCIEFW_OP_MSI 7
+#define PCIEFW_OP_MSIX 8
+  uint8_t op;
+
+  uint8_t bar;
+  uint64_t addr;
+  uint16_t size;
+  uint8_t data[1];
+
+} __attribute__((packed)) pciefw_access_req_t;
+
+Where:
+. tag is sent back by the reply as opaque field,
+. op operation type, one of PCIEFW_OP_XXX,
+. bar the PCIE BAR, in [0:5],
+. addr the target address,
+. size the data size in bytes,
+. data is a variable length field containing the access data.
+
+The PCIE endpoint process can initiate pciefw_access_req_t messages to
+perform write operations of its own. This is used to perform data transfers
+(DMA engines ...) and send interrupts.
+
+In the case of a read operation, the PCIE endpoint process replies with
+a pciefw_reply_t formatted message:
+
+typedef struct pciefw_access_rep
+{
+  pciefw_header_t header;
+  uint32_t tag;
+  uint8_t status;
+  uint8_t data[8];
+} __attribute__((packed)) pciefw_access_rep_t;
+
+Where:
+. tag is the initiating access tag,
+. status is the access status, one of PCIEFW_STATUS_XXX,
+. data contains the replied data.
+
+
+
+* limitations
+-------------
+
+The process acts as the server, and must be started before QEMU starts.
+The QEMU event loop is blocked while awaiting for a device reply.
+Read operations from the process are not supported.
+The transport layer should be abstracted, allowing non TCP to be used.
+MSIX are not supported.
