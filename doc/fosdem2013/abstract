@@ -1,0 +1,43 @@
+* title
+-------
+
+VPCIE: an open source PCIE endpoint virtualization framework
+
+
+* abstract
+----------
+
+ESRF (http://www.esrf.eu) operates a source of XRAY light to serve fundamental
+research and industry. Part of its activities involves developing electronics
+and software for XRAY detectors. These are complex and long term projects, and
+it can take years before first prototypes get available. From a software
+development perspective, it can be difficult to validate and iterate over an
+implementation without hardware. This is especially true when working on device
+drivers.
+
+In this talk, we present VPCIE (https://github.com/texane/vpcie), an open
+source PCIE device virtualization framework developed at ESRF in the context
+of a fast data acquisition project supported by the CRISP initiative
+(http://www.crisp-fp7.eu). Relying on the flexible QEMU hardware virtualizer
+(http://wiki.qemu.org) and the GHDL VHDL frontend for GCC (http://ghdl.free.fr),
+it allows a software engineer to work without the target hardware being available.
+Others benefits include shortening the time required to prototype FPGA based PCIE
+endpoints.
+
+The platform is still in early development, and this talk hopes to gather
+feedbacks, ideas and eventual contributions from interested people.
+
+
+* notes
+-------
+
+This abstract is for a lighting talk
+
+
+* about you
+-----------
+
+I am currently a software engineer working at ESRF and a long term open source
+(and hardware more recently) enthusiast. I am a member of the Grenoble hackerspace
+(https://www.logre.eu/wiki/Accueil). Projects of mine can be found on the github
+repository: https://github.com/texane
