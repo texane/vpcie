@@ -31,6 +31,10 @@ The use of hardware virtualization in RASHPA
 \end{frame}
 
 \begin{frame}{Context - RASHPA reminder}
+  \begin{center}
+    \includegraphics[width=20mm]{pic/dv_reminder/main.jpeg}
+  \end{center}
+  \begin{tiny}
   RASHPA basic goal is to transfer \textbf{detector} memory contents into
   a \textbf{backend} for further processing, visualisation or storage. To
   do so, RASHPA relies on low level hardware and software components\\
@@ -39,6 +43,7 @@ The use of hardware virtualization in RASHPA
   \item a data transmission engine implemented on XILINX FPGA
   \item LINUX kernel device driver and userland software
   \end{itemize}
+  \end{tiny}
 \end{frame}
 
 \begin{frame}{Context - RASHPA project issues}
@@ -110,12 +115,25 @@ The use of hardware virtualization in RASHPA
   \end{itemize}
 \end{frame}
 
-\begin{frame}{VPCIE - overview}
+\begin{frame}{VPCIE - goals}
   \begin{itemize}
-  \item virtualize PCIE endpoints
-  \item help during the RASHPA development
+  \item virtualize PCIE endpoints for RASHPA
   \item made generic enough to fit other projects
+  \item the backend software must run \textbf{without any modification}
+  \item should be possible to use VHDL for device simulation
   \end{itemize}
+\end{frame}
+
+\begin{frame}{VPCIE - RASHPA possible setup (0)}
+  \begin{center}
+  \includegraphics[width=70mm]{pic/dv_vpcie/main.jpeg}
+  \end{center}
+\end{frame}
+
+\begin{frame}{VPCIE - RASHPA possible setup (1)}
+  \begin{center}
+  \includegraphics[width=70mm]{pic/dv_rashpa/main.jpeg}
+  \end{center}
 \end{frame}
 
 \begin{frame}{VPCIE - opensource building blocks}
@@ -131,12 +149,6 @@ The use of hardware virtualization in RASHPA
   \item VHDL frontend for GCC
   \item used to implement device in VHDL
   \end{itemize}
-\end{frame}
-
-\begin{frame}{VPCIE - RASHPA possible setup}
-  \begin{center}
-  \includegraphics[width=70mm]{pic/dv_rashpa/main.jpeg}
-  \end{center}
 \end{frame}
 
 \begin{frame}{VPCIE - RASHPA backend}
@@ -161,7 +173,7 @@ The use of hardware virtualization in RASHPA
   Hardware software codesign
   \begin{itemize}
   \item reduce development time
-  \item no instrumentation on the backend software (esp. driver)
+  \item no \textbf{modification} on the backend software (esp. driver)
   \item act as a stimuli generator for VHDL simulations
   \end{itemize}
 
@@ -181,7 +193,7 @@ The use of hardware virtualization in RASHPA
 \end{frame}
 
 \begin{frame}{VPCIE - demo}
-  \begin{center}Time for a demo\end{center}
+  \begin{center}demo\end{center}
 \end{frame}
 
 \end{document}
