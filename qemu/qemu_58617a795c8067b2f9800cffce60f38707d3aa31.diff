@@ -23,10 +23,10 @@ index 6dfebd2..521958e 100644
  hw-obj-$(CONFIG_PUV3) += puv3_ost.o
 diff --git a/hw/pciefw.c b/hw/pciefw.c
 new file mode 100644
-index 0000000..67b0dc5
+index 0000000..f072563
 --- /dev/null
 +++ b/hw/pciefw.c
-@@ -0,0 +1,700 @@
+@@ -0,0 +1,723 @@
 +/* TODO: WRITE_MEM can come concurrently with recv(). use pending message list. */
 +
 +
@@ -87,10 +87,9 @@ index 0000000..67b0dc5
 +  int sock;
 +  pciefw_props_t props;
 +  unsigned int has_probed;
-+#define PCI_NBARS 6
-+  MemoryRegion bar_region[PCI_NBARS];
-+  pciefw_mmio_t mmio[PCI_NBARS];
-+  size_t bar_size[PCI_NBARS];
++  MemoryRegion bar_region[PCI_NUM_REGIONS];
++  pciefw_mmio_t mmio[PCI_NUM_REGIONS];
++  size_t bar_size[PCI_NUM_REGIONS];
 +  struct pciefw_msg* msg;
 +  QemuOptsList* optlist;
 +  QemuOpts* opts;
@@ -348,16 +347,11 @@ index 0000000..67b0dc5
 +
 +/* qemu device io operations */
 +
-+static inline unsigned int pciefw_is_connected(const pciefw_state_t* state)
-+{
-+  return state->sock != -1;
-+}
-+
 +static int pciefw_connect_probe_device(pciefw_state_t* state);
 +
 +static int pciefw_connect_if_unconnected(pciefw_state_t* state)
 +{
-+  if (pciefw_is_connected(state)) return 0;
++  if (state->sock != -1) return 0;
 +  return pciefw_connect_probe_device(state);
 +}
 +
@@ -418,12 +412,7 @@ index 0000000..67b0dc5
 +    pciefw_send_write_config(state, addr, width, data);
 +
 +  /* write even if not connected */
-+
-+#if 1 /* TODO: useful? */
 +  pci_default_write_config(dev, addr, data, width);
-+  /* already done in pci_default_write_config */
-+  /* msi_write_config(dev, addr, data, width); */
-+#endif
 +}
 +
 +static const MemoryRegionOps pciefw_mmio_ops =
@@ -515,19 +504,48 @@ index 0000000..67b0dc5
 +  if (s->props.rport == NULL) s->props.rport = (char*)"42425";
 +}
 +
++static void pciefw_unprobe_device(pciefw_state_t* state)
++{
++  unsigned int i;
++
++  PRINTF("unprobing device\n");
++
++  if (state->has_probed == 1)
++  {
++    msi_uninit(&state->dev);
++
++    for (i = 0; i < PCI_NUM_REGIONS; ++i)
++    {
++      PCIIORegion* const r = &state->dev.io_regions[i];
++      if (r->size && (r->addr != PCI_BAR_UNMAPPED))
++	memory_region_del_subregion(r->address_space, r->memory);
++      if (state->bar_size[i])
++	memory_region_destroy(&state->bar_region[i]);
++    }
++
++    state->has_probed = 0;
++  }
++}
++
 +static void pciefw_probe_device(pciefw_state_t* state)
 +{
 +  uint8_t* const pci_conf = state->dev.config;
 +  unsigned int i;
 +
++  PRINTF("probing device\n");
++
++  /* undo any previous allocation */
++  pciefw_unprobe_device(state);
++
 +  pci_conf[PCI_COMMAND] = PCI_COMMAND_IO | PCI_COMMAND_MEMORY;
 +
 +  /* read remote bars and register corresponding memory regions */
 +
-+  for (i = 0; i < PCI_NBARS; ++i)
++  for (i = 0; i < PCI_NUM_REGIONS; ++i)
 +  {
 +    const uintptr_t config_addr = PCI_BASE_ADDRESS_0 + i * 4;
 +    uint32_t bar_size;
++    uint32_t bar_addr;
 +
 +    state->bar_size[i] = 0;
 +
@@ -536,6 +554,11 @@ index 0000000..67b0dc5
 +
 +    if (pciefw_send_read_config(state, config_addr, 4, &bar_size))
 +      { PERROR(); continue ; }
++
++    /* restore the bar address */
++    bar_addr = *(uint32_t*)(pci_conf + PCI_BASE_ADDRESS_0 + i * 4);
++    PRINTF("BAR_ADDR: 0x%lx\n", (uint64_t)bar_addr);
++    pciefw_send_write_config(state, config_addr, 4, (uint64_t)bar_addr);
 +
 +#ifndef PCI_ADDR_FLAG_MASK
 +# define PCI_ADDR_FLAG_MASK 0xf
@@ -588,9 +611,9 @@ index 0000000..67b0dc5
 +    return -1;
 +  }
 +
-+  /* FIXME: do not probe twice to avoid qemu segfault at latter time */
-+  /* a limitation is that bar range cannot change */
-+  if (state->has_probed == 0) pciefw_probe_device(state);
++  PRINTF("device connected\n");
++
++  pciefw_probe_device(state);
 +
 +  /* register the fd handler for qemu */
 +  qemu_set_fd_handler(state->sock, pciefw_on_read, NULL, state);
@@ -661,7 +684,7 @@ index 0000000..67b0dc5
 +
 +  msi_uninit(dev);
 +
-+  for (i = 0; i < PCI_NBARS; ++i)
++  for (i = 0; i < PCI_NUM_REGIONS; ++i)
 +  {
 +    if (state->bar_size[i] == 0) continue ;
 +    memory_region_destroy(&state->bar_region[i]);
