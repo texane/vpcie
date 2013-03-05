@@ -124,14 +124,20 @@ static void on_write_config(pcie_dev_t* dev, const pcie_net_msg_t* msg)
     const unsigned int ibar =
       (msg->addr - PCI_BASE_ADDRESS_0) / sizeof(uint32_t);
 
-    if (dev->bar_size[ibar])
-    {
-      const uint32_t size = dev->bar_size[ibar];
-      const uint32_t data = *(uint32_t*)msg->data;
-      pcie_write_config_long(dev, msg->addr, data & ~(size - 1));
-    }
+    uint32_t data = *(uint32_t*)msg->data;
+    const uint32_t size = dev->bar_size[ibar];
 
-    return ;
+    if (data == (uint32_t)-1)
+    {
+      /* probe the bar size */
+      if (dev->bar_size[ibar])
+      {
+	const uint32_t data = *(uint32_t*)msg->data;
+	pcie_write_config_long(dev, msg->addr, data & ~(size - 1));
+      }
+      return ;
+    }
+    /* else, standard write */
   }
   else if (msg->addr == PCI_ROM_ADDRESS)
   {
