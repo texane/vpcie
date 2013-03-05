@@ -23,10 +23,10 @@ index 6dfebd2..521958e 100644
  hw-obj-$(CONFIG_PUV3) += puv3_ost.o
 diff --git a/hw/pciefw.c b/hw/pciefw.c
 new file mode 100644
-index 0000000..e521669
+index 0000000..67b0dc5
 --- /dev/null
 +++ b/hw/pciefw.c
-@@ -0,0 +1,698 @@
+@@ -0,0 +1,700 @@
 +/* TODO: WRITE_MEM can come concurrently with recv(). use pending message list. */
 +
 +
@@ -86,6 +86,7 @@ index 0000000..e521669
 +  PCIDevice dev;
 +  int sock;
 +  pciefw_props_t props;
++  unsigned int has_probed;
 +#define PCI_NBARS 6
 +  MemoryRegion bar_region[PCI_NBARS];
 +  pciefw_mmio_t mmio[PCI_NBARS];
@@ -352,29 +353,12 @@ index 0000000..e521669
 +  return state->sock != -1;
 +}
 +
-+static void pciefw_probe_device(pciefw_state_t* state);
++static int pciefw_connect_probe_device(pciefw_state_t* state);
 +
 +static int pciefw_connect_if_unconnected(pciefw_state_t* state)
 +{
 +  if (pciefw_is_connected(state)) return 0;
-+
-+  PRINTF("trying to connect\n");
-+
-+#if (CONFIG_USE_UDP == 1)
-+  state->sock = inet_dgram_opts(state->opts);
-+#else
-+  state->sock = inet_connect_opts(state->opts, NULL, NULL);
-+#endif
-+
-+  if (state->sock == -1)
-+  {
-+    PRINTF("fail to connect\n");
-+    return -1;
-+  }
-+
-+  pciefw_probe_device(state);
-+
-+  return 0;
++  return pciefw_connect_probe_device(state);
 +}
 +
 +static uint64_t pciefw_mmio_read
@@ -428,14 +412,17 @@ index 0000000..e521669
 +
 +  PRINTF("%s (%x, %x, %u)\n", __FUNCTION__, addr, data, width);
 +
-+  if (pciefw_connect_if_unconnected(state) == -1) return ;
-+
 +  /* TODO: some write need to be filtered (PCI_BASE_ADDRESS_N) ? */
 +
-+  pciefw_send_write_config(state, addr, width, data);
++  if (pciefw_connect_if_unconnected(state) != -1)
++    pciefw_send_write_config(state, addr, width, data);
++
++  /* write even if not connected */
++
 +#if 1 /* TODO: useful? */
 +  pci_default_write_config(dev, addr, data, width);
-+  msi_write_config(dev, addr, data, width);
++  /* already done in pci_default_write_config */
++  /* msi_write_config(dev, addr, data, width); */
 +#endif
 +}
 +
@@ -585,8 +572,30 @@ index 0000000..e521669
 +  /* TODO: check msi_enabled on remote device */
 +  if (msi_init(&state->dev, 0x00, 1, false, false) < 0) { PERROR(); }
 +
++  state->has_probed = 1;
++}
++
++static int pciefw_connect_probe_device(pciefw_state_t* state)
++{
++#if (CONFIG_USE_UDP == 1)
++  state->sock = inet_dgram_opts(state->opts);
++#else
++  state->sock = inet_connect_opts(state->opts, NULL, NULL);
++#endif
++  if (state->sock == -1)
++  {
++    PRINTF("failed to connect\n");
++    return -1;
++  }
++
++  /* FIXME: do not probe twice to avoid qemu segfault at latter time */
++  /* a limitation is that bar range cannot change */
++  if (state->has_probed == 0) pciefw_probe_device(state);
++
 +  /* register the fd handler for qemu */
 +  qemu_set_fd_handler(state->sock, pciefw_on_read, NULL, state);
++
++  return 0;
 +}
 +
 +static int pciefw_pci_init(PCIDevice* dev)
@@ -598,6 +607,7 @@ index 0000000..e521669
 +  check_props(state);
 +
 +  state->sock = -1;
++  state->has_probed = 0;
 +
 +  /* preallocate message buffer large enough */
 +
@@ -627,24 +637,16 @@ index 0000000..e521669
 +  qemu_opt_set(state->opts, "localaddr", state->props.laddr);
 +  qemu_opt_set(state->opts, "localport", state->props.lport);
 +
-+#if (CONFIG_USE_UDP == 1)
-+  state->sock = inet_dgram_opts(state->opts);
-+#else
++#if (CONFIG_USE_UDP == 0)
 +  state->optlist->desc[0].name = "block";
 +  state->optlist->desc[0].type = QEMU_OPT_BOOL;
 +  state->optlist->desc[0].help = "";
 +  qemu_opt_set_bool(state->opts, "block", true);
-+  state->sock = inet_connect_opts(state->opts, NULL, NULL);
 +#endif /* CONFIG_USE_UDP */
 +
-+  if (state->sock == -1)
-+  {
-+    /* not an error if connection failed, but do not probe */
-+    PRINTF("state->sock == -1\n");
-+    return 0;
-+  }
++  pciefw_connect_probe_device(state);
 +
-+  pciefw_probe_device(state);
++  /* do not report connection error to qemu */
 +
 +  return 0;
 +}
