@@ -226,10 +226,15 @@ static void* thread_entry(void* fu)
   thread_context_t* const c = &g_thread_context;
   pcie_dev_t* const dev = &c->dev;
 
-  static const char* const laddr = "127.0.0.1";
-  static const char* const lport = "42425";
-  static const char* const raddr = "127.0.0.1";
-  static const char* const rport = "42424";
+  const char* laddr = getenv("PCIE_INET_LADDR");
+  const char* lport = getenv("PCIE_INET_LPORT");
+  const char* raddr = getenv("PCIE_INET_RADDR");
+  const char* rport = getenv("PCIE_INET_RPORT"); 
+
+  if (laddr == NULL) laddr = "127.0.0.1";
+  if (lport == NULL) lport = "42425";
+  if (raddr == NULL) raddr = "127.0.0.1";
+  if (rport == NULL) rport = "42424";
 
   pipe(c->ev_fds);
 
