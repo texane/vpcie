@@ -23,10 +23,10 @@ index 6dfebd2..521958e 100644
  hw-obj-$(CONFIG_PUV3) += puv3_ost.o
 diff --git a/hw/pciefw.c b/hw/pciefw.c
 new file mode 100644
-index 0000000..8a25567
+index 0000000..e521669
 --- /dev/null
 +++ b/hw/pciefw.c
-@@ -0,0 +1,632 @@
+@@ -0,0 +1,698 @@
 +/* TODO: WRITE_MEM can come concurrently with recv(). use pending message list. */
 +
 +
@@ -91,6 +91,8 @@ index 0000000..8a25567
 +  pciefw_mmio_t mmio[PCI_NBARS];
 +  size_t bar_size[PCI_NBARS];
 +  struct pciefw_msg* msg;
++  QemuOptsList* optlist;
++  QemuOpts* opts;
 +} pciefw_state_t;
 +
 +
@@ -345,6 +347,36 @@ index 0000000..8a25567
 +
 +/* qemu device io operations */
 +
++static inline unsigned int pciefw_is_connected(const pciefw_state_t* state)
++{
++  return state->sock != -1;
++}
++
++static void pciefw_probe_device(pciefw_state_t* state);
++
++static int pciefw_connect_if_unconnected(pciefw_state_t* state)
++{
++  if (pciefw_is_connected(state)) return 0;
++
++  PRINTF("trying to connect\n");
++
++#if (CONFIG_USE_UDP == 1)
++  state->sock = inet_dgram_opts(state->opts);
++#else
++  state->sock = inet_connect_opts(state->opts, NULL, NULL);
++#endif
++
++  if (state->sock == -1)
++  {
++    PRINTF("fail to connect\n");
++    return -1;
++  }
++
++  pciefw_probe_device(state);
++
++  return 0;
++}
++
 +static uint64_t pciefw_mmio_read
 +(void* opaque, target_phys_addr_t addr, unsigned width)
 +{
@@ -353,6 +385,8 @@ index 0000000..8a25567
 +  int err;
 +
 +  PRINTF("%s (%u+" TARGET_FMT_plx ")\n", __FUNCTION__, mmio->bar, addr);
++
++  if (pciefw_connect_if_unconnected(mmio->state) == -1) return (uint64_t)-1;
 +
 +  err = pciefw_send_read_mem(mmio->state, mmio->bar, addr, width, &data);
 +  return err ? (uint64_t)-1 : data;
@@ -363,6 +397,9 @@ index 0000000..8a25567
 +{
 +  pciefw_mmio_t* const mmio = opaque;
 +  PRINTF("%s (%u+" TARGET_FMT_plx ", %lx)\n", __FUNCTION__, mmio->bar, addr, data);
++
++  if (pciefw_connect_if_unconnected(mmio->state) == -1) return ;
++
 +  pciefw_send_write_mem(mmio->state, mmio->bar, addr, width, data);
 +}
 +
@@ -373,6 +410,8 @@ index 0000000..8a25567
 +  uint64_t data = 0;
 +
 +  PRINTF("%s (" TARGET_FMT_plx ")\n", __FUNCTION__, (unsigned long)addr);
++
++  if (pciefw_connect_if_unconnected(state) == -1) return (uint32_t)-1;
 +
 +#if 0
 +  return pci_default_read_config(dev, addr, width);
@@ -388,6 +427,8 @@ index 0000000..8a25567
 +  pciefw_state_t* const state = DO_UPCAST(pciefw_state_t, dev, dev);
 +
 +  PRINTF("%s (%x, %x, %u)\n", __FUNCTION__, addr, data, width);
++
++  if (pciefw_connect_if_unconnected(state) == -1) return ;
 +
 +  /* TODO: some write need to be filtered (PCI_BASE_ADDRESS_N) ? */
 +
@@ -432,8 +473,21 @@ index 0000000..8a25567
 +  }
 +
 +  err = pciefw_recv_msg(state, msg);
-+  if (err == -1) { PERROR(); return ; }
-+  else if (err == 1) { return ; } /* icmp_unreachable case */
++
++  /* error or disconnection */
++  if (err != 0)
++  {
++    PRINTF("error, eventually disconncted\n");
++
++    if (state->sock != -1)
++    {
++      qemu_set_fd_handler(state->sock, NULL, NULL, NULL);
++      closesocket(state->sock);
++      state->sock = -1;
++    }
++
++    return ;
++  }
 +
 +  switch (msg->op)
 +  {
@@ -474,67 +528,11 @@ index 0000000..8a25567
 +  if (s->props.rport == NULL) s->props.rport = (char*)"42425";
 +}
 +
-+static int pciefw_pci_init(PCIDevice* dev)
++static void pciefw_probe_device(pciefw_state_t* state)
 +{
-+  pciefw_state_t* const state = DO_UPCAST(pciefw_state_t, dev, dev);
++  uint8_t* const pci_conf = state->dev.config;
 +  unsigned int i;
-+  uint8_t* pci_conf;
-+  QemuOptsList* optlist;
-+  QemuOpts* opts;
 +
-+  PRINTF("%s\n", __FUNCTION__);
-+
-+  check_props(state);
-+
-+  /* preallocate message buffer large enough */
-+
-+  state->msg = g_malloc(PCIEFW_MSG_MAX_SIZE);
-+  if (state->msg == NULL) { return -1; }
-+
-+  /* open inet socket */
-+
-+  optlist = g_malloc0(offsetof(QemuOptsList, desc) + sizeof(QemuOptDesc));
-+  if (optlist == NULL) { g_free(state->msg); return -1; }
-+
-+  optlist->name = "inet_optlist";
-+  optlist->head.tqh_first = NULL;
-+  optlist->head.tqh_last = &optlist->head.tqh_first;
-+
-+  opts = qemu_opts_create(optlist, NULL, 0, NULL);
-+  if (opts == NULL)
-+  {
-+    PRINTF("opts == NULL\n");
-+    g_free(state->msg);
-+    g_free(optlist);
-+    return -1;
-+  }
-+
-+  qemu_opt_set(opts, "host", state->props.raddr);
-+  qemu_opt_set(opts, "port", state->props.rport);
-+  qemu_opt_set(opts, "localaddr", state->props.laddr);
-+  qemu_opt_set(opts, "localport", state->props.lport);
-+
-+#if (CONFIG_USE_UDP == 1)
-+  state->sock = inet_dgram_opts(opts);
-+#else
-+  optlist->desc[0].name = "block";
-+  optlist->desc[0].type = QEMU_OPT_BOOL;
-+  optlist->desc[0].help = "";
-+  qemu_opt_set_bool(opts, "block", true);
-+  state->sock = inet_connect_opts(opts, NULL, NULL);
-+#endif /* CONFIG_USE_UDP */
-+
-+  qemu_opts_del(opts);
-+  g_free(optlist);
-+
-+  if (state->sock == -1)
-+  {
-+    PRINTF("state->sock == -1\n");
-+    g_free(state->msg);
-+    return -1;
-+  }
-+
-+  pci_conf = state->dev.config;
 +  pci_conf[PCI_COMMAND] = PCI_COMMAND_IO | PCI_COMMAND_MEMORY;
 +
 +  /* read remote bars and register corresponding memory regions */
@@ -589,6 +587,64 @@ index 0000000..8a25567
 +
 +  /* register the fd handler for qemu */
 +  qemu_set_fd_handler(state->sock, pciefw_on_read, NULL, state);
++}
++
++static int pciefw_pci_init(PCIDevice* dev)
++{
++  pciefw_state_t* const state = DO_UPCAST(pciefw_state_t, dev, dev);
++
++  PRINTF("%s\n", __FUNCTION__);
++
++  check_props(state);
++
++  state->sock = -1;
++
++  /* preallocate message buffer large enough */
++
++  state->msg = g_malloc(PCIEFW_MSG_MAX_SIZE);
++  if (state->msg == NULL) { return -1; }
++
++  /* open inet socket */
++
++  state->optlist = g_malloc0(offsetof(QemuOptsList, desc) + sizeof(QemuOptDesc));
++  if (state->optlist == NULL) { g_free(state->msg); return -1; }
++
++  state->optlist->name = "inet_optlist";
++  state->optlist->head.tqh_first = NULL;
++  state->optlist->head.tqh_last = &state->optlist->head.tqh_first;
++
++  state->opts = qemu_opts_create(state->optlist, NULL, 0, NULL);
++  if (state->opts == NULL)
++  {
++    PRINTF("opts == NULL\n");
++    g_free(state->msg);
++    g_free(state->optlist);
++    return -1;
++  }
++
++  qemu_opt_set(state->opts, "host", state->props.raddr);
++  qemu_opt_set(state->opts, "port", state->props.rport);
++  qemu_opt_set(state->opts, "localaddr", state->props.laddr);
++  qemu_opt_set(state->opts, "localport", state->props.lport);
++
++#if (CONFIG_USE_UDP == 1)
++  state->sock = inet_dgram_opts(state->opts);
++#else
++  state->optlist->desc[0].name = "block";
++  state->optlist->desc[0].type = QEMU_OPT_BOOL;
++  state->optlist->desc[0].help = "";
++  qemu_opt_set_bool(state->opts, "block", true);
++  state->sock = inet_connect_opts(state->opts, NULL, NULL);
++#endif /* CONFIG_USE_UDP */
++
++  if (state->sock == -1)
++  {
++    /* not an error if connection failed, but do not probe */
++    PRINTF("state->sock == -1\n");
++    return 0;
++  }
++
++  pciefw_probe_device(state);
 +
 +  return 0;
 +}
@@ -610,7 +666,9 @@ index 0000000..8a25567
 +  }
 +
 +  qemu_set_fd_handler(state->sock, NULL, NULL, NULL);
-+  close(state->sock);
++  closesocket(state->sock);
++  qemu_opts_del(state->opts);
++  g_free(state->optlist);
 +
 +  g_free(state->msg);
 +}
@@ -644,12 +702,20 @@ index 0000000..8a25567
 +  dc->props = pciefw_props;
 +}
 +
++static void pciefw_class_fini(ObjectClass* klass, void* data)
++{
++  PRINTF("%s TODO\n", __FUNCTION__);
++
++  /* TODO: release clients */
++}
++
 +static TypeInfo pciefw_type_info =
 +{
 +  .name = "pciefw",
 +  .parent = TYPE_PCI_DEVICE,
 +  .instance_size = sizeof(pciefw_state_t),
 +  .class_init = pciefw_class_init,
++  .class_finalize = pciefw_class_fini,
 +};
 +
 +static void pciefw_register_type(void)
@@ -680,7 +746,7 @@ index b188582..fe1e272 100644
          default_mon = mon;
 diff --git a/run_backend.sh b/run_backend.sh
 new file mode 100755
-index 0000000..09d9956
+index 0000000..89e39b9
 --- /dev/null
 +++ b/run_backend.sh
 @@ -0,0 +1,50 @@
@@ -727,7 +793,7 @@ index 0000000..09d9956
 +disk_opts=$HOME/repo/vm/aurel32/debian_squeeze_amd64_standard.qcow2
 +
 +# memory options
-+mem_opts='-m 512'
++mem_opts='-m 16G'
 +
 +# sudo sh -c "$HOME/repo/qemu/x86_64-softmmu/qemu-system-x86_64 $disk_opts $pciefw_opts $net_opts $mem_opts >/dev/null 2>&1 &" ;
 +sudo sh -c "$HOME/repo/qemu/x86_64-softmmu/qemu-system-x86_64 $disk_opts $pciefw_opts $net_opts $mem_opts" ;
