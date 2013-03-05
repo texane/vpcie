@@ -20,7 +20,7 @@
 #include <stdio.h>
 #define PRINTF(__s, ...)  \
 do { printf(__s, ## __VA_ARGS__); } while (0)
-#define PERROR() printf("[!] %d\n", __LINE__)
+#define PERROR() printf("[!] %s %d\n", __FUNCTION__, __LINE__)
 #else
 #define PRINTF(__s, ...)
 #define PERROR()
