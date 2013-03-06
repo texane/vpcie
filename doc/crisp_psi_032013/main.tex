@@ -142,13 +142,13 @@ The use of hardware virtualization in RASHPA
 
 \begin{frame}{VPCIE - implementation}
   \begin{center}
-  \includegraphics[width=70mm]{pic/dv_implem/main.jpeg}
+  \includegraphics[width=80mm]{pic/dv_implem/main.jpeg}
   \end{center}
 \end{frame}
 
 \begin{frame}{VPCIE - RASHPA possible setup}
   \begin{center}
-  \includegraphics[width=70mm]{pic/dv_vpcie/main.jpeg}
+  \includegraphics[width=80mm]{pic/dv_vpcie/main.jpeg}
   \end{center}
 \end{frame}
 
@@ -164,9 +164,9 @@ The use of hardware virtualization in RASHPA
 \begin{frame}{VPCIE - RASHPA devices}
   RASHPA devices
   \begin{itemize}
-  \item run as a LINUX processes
+  \item run as a LINUX processes, can be duplicated at will
   \item can be implemented in C or VHDL
-  \item can be duplicated at will
+  \item PCIE made simple, focus on device logic
   \end{itemize}
 \end{frame}
 
@@ -211,19 +211,18 @@ end entity;
  \begin{lstlisting}[frame=tb]
 
 /* runtime initialization */
-int pcie_init_net(pcie_dev_t*, const char*, const char*, const char*, const char*);
+int pcie_init_net(pcie_dev_t*, ...);
 int pcie_fini(pcie_dev_t*);
 int pcie_loop(pcie_dev_t*);
 
 /* misc config byte accessors */
-int pcie_set_deviceid(pcie_dev_t*, uint16_t);
-int pcie_set_vendorid(pcie_dev_t*, uint16_t);
+int pcie_set_deviceid(pcie_dev_t*, ...);
+int pcie_set_vendorid(pcie_dev_t*, ...);
 
 /* PCIE BAR access handlers */
 typedef void (*pcie_readfn_t)(uint64_t, void*, size_t, void*);
 typedef void (*pcie_writefn_t)(uint64_t, const void*, size_t, void*);
-int pcie_set_bar
-(pcie_dev_t*, unsigned long, size_t, pcie_readfn_t, pcie_writefn_t, void*);
+int pcie_set_bar(pcie_dev_t*, ..., pcie_readfn_t, pcie_writefn_t, ...);
 
 /* host memory read write operations */
 int pcie_write_host_mem(pcie_dev_t*, uint64_t, size_t*);
