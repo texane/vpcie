@@ -170,6 +170,71 @@ The use of hardware virtualization in RASHPA
   \end{itemize}
 \end{frame}
 
+\begin{frame}[containsverbatim]
+ \frametitle{VPCIE - VHDL interface}
+ \begin{tiny}
+ \lstset{commentstyle=\color{blue}}
+ \lstset{language=VHDL}
+ \begin{lstlisting}[frame=tb]
+entity endpoint is
+ port
+ (
+  rst: in std_ulogic;
+  clk: in std_ulogic;
+
+  req_en: out std_ulogic;
+  req_wr: out std_ulogic;
+  req_bar: out std_ulogic_vector(pcie.BAR_WIDTH - 1 downto 0);
+  req_addr: out std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
+  req_data: out std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
+
+  rep_en: in std_ulogic;
+  rep_data: in std_ulogic_vector(pcie.DATA_WIDTH - 1 downto 0);
+
+  mwr_en: in std_ulogic;
+  mwr_addr: in std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
+  mwr_data: in std_ulogic_vector(pcie.PAYLOAD_WIDTH - 1 downto 0);
+  mwr_size: in std_ulogic_vector(pcie.SIZE_WIDTH - 1 downto 0);
+
+  msi_en: in std_ulogic
+ );
+end entity;
+ \end{lstlisting}
+ \end{tiny}
+\end{frame}
+
+\begin{frame}[containsverbatim]
+ \frametitle{VPCIE - C interface}
+ \begin{tiny}
+ \lstset{commentstyle=\color{blue}}
+ \lstset{language=C}
+ \begin{lstlisting}[frame=tb]
+
+/* runtime initialization */
+int pcie_init_net(pcie_dev_t*, const char*, const char*, const char*, const char*);
+int pcie_fini(pcie_dev_t*);
+int pcie_loop(pcie_dev_t*);
+
+/* misc config byte accessors */
+int pcie_set_deviceid(pcie_dev_t*, uint16_t);
+int pcie_set_vendorid(pcie_dev_t*, uint16_t);
+
+/* PCIE BAR access handlers */
+typedef void (*pcie_readfn_t)(uint64_t, void*, size_t, void*);
+typedef void (*pcie_writefn_t)(uint64_t, const void*, size_t, void*);
+int pcie_set_bar
+(pcie_dev_t*, unsigned long, size_t, pcie_readfn_t, pcie_writefn_t, void*);
+
+/* host memory read write operations */
+int pcie_write_host_mem(pcie_dev_t*, uint64_t, size_t*);
+int pcie_read_host_mem(pcie_dev_t*, uint64_t, size_t*);
+
+/* send an MSI */
+int pcie_send_msi(pcie_dev_t*);
+ \end{lstlisting}
+ \end{tiny}
+\end{frame}
+
 \begin{frame}{VPCIE - benefits}
   Hardware software codesign
   \begin{itemize}
