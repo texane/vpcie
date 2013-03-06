@@ -203,7 +203,6 @@ static unsigned int on_msg_recv
     reply->status = 0;
     *(uint64_t*)reply->data = (uint64_t)-1;
     if (msg->bar >= PCIE_BAR_COUNT) break ;
-    if (dev->bar_size[msg->bar] == 0) break ;
     if (dev->bar_readfn[msg->bar] == NULL) break ;
     *(uint64_t*)reply->data = 0; /* remove bits due to (uint64_t)-1 */
     dev->bar_readfn[msg->bar]
@@ -212,7 +211,6 @@ static unsigned int on_msg_recv
 
   case PCIE_NET_OP_WRITE_MEM:
     if (msg->bar >= PCIE_BAR_COUNT) break ;
-    if (dev->bar_size[msg->bar] == 0) break ;
     if (dev->bar_writefn[msg->bar] == NULL) break ;
     dev->bar_writefn[msg->bar]
       (msg->addr, (void*)msg->data, msg->width, dev->bar_data[msg->bar]);

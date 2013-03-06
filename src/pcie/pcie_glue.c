@@ -146,11 +146,11 @@ typedef struct thread_context
 
 /* device access routines */
 
-static void on_bar1_read
-(uint64_t addr, void* data, size_t size, void* opak)
+static void on_bar_read
+(unsigned int bar, uint64_t addr, void* data, size_t size, void* opak)
 {
   thread_context_t* const c = opak;
-  fnode_t* const node = fifo_alloc_access_node(1, 1, addr, size, data);
+  fnode_t* const node = fifo_alloc_access_node(1, bar, addr, size, data);
 
   PRINTF("%s\n", __FUNCTION__);
 
@@ -168,16 +168,32 @@ static void on_bar1_read
   free(node);
 }
 
-static void on_bar1_write
-(uint64_t addr, const void* data, size_t size, void* opak)
+static void on_bar_write
+(unsigned int bar, uint64_t addr, const void* data, size_t size, void* opak)
 {
   thread_context_t* const c = opak;
-  fnode_t* const node = fifo_alloc_access_node(0, 1, addr, size, data);
+  fnode_t* const node = fifo_alloc_access_node(0, bar, addr, size, data);
 
   PRINTF("%s\n", __FUNCTION__);
 
   fifo_push_node(&c->rx_fifo, node);
 }
+
+#define DEFINE_BAR_HANDLERS(__n)				\
+__attribute__((unused)) static void on_bar ## __n ## _read	\
+(uint64_t addr, void* data, size_t size, void* opak)		\
+{ on_bar_read(__n, addr, data, size, opak); }			\
+__attribute__((unused)) static void on_bar ## __n ## _write	\
+(uint64_t addr, const void* data, size_t size, void* opak)	\
+{ on_bar_write(__n, addr, data, size, opak); }
+
+DEFINE_BAR_HANDLERS(0);
+DEFINE_BAR_HANDLERS(1);
+DEFINE_BAR_HANDLERS(2);
+DEFINE_BAR_HANDLERS(3);
+DEFINE_BAR_HANDLERS(4);
+DEFINE_BAR_HANDLERS(5);
+
 
 #define EVK_BASE 0x2a2a2a2a
 static const unsigned int evk_quit = EVK_BASE + 0;
@@ -225,16 +241,77 @@ static void* thread_entry(void* fu)
 {
   thread_context_t* const c = &g_thread_context;
   pcie_dev_t* const dev = &c->dev;
+  unsigned int bar_size[PCIE_BAR_COUNT] = { 0, };
+  pcie_readfn_t bar_readfn[PCIE_BAR_COUNT];
+  pcie_writefn_t bar_writefn[PCIE_BAR_COUNT];
+  unsigned int vendor_id = 0;
+  unsigned int device_id = 0;
+  unsigned int i;
+  const char* s;
+  const char* laddr;
+  const char* lport;
+  const char* raddr;
+  const char* rport;
 
-  const char* laddr = getenv("PCIE_INET_LADDR");
-  const char* lport = getenv("PCIE_INET_LPORT");
-  const char* raddr = getenv("PCIE_INET_RADDR");
-  const char* rport = getenv("PCIE_INET_RPORT"); 
+  if ((laddr = getenv("PCIE_INET_LADDR")) == NULL)
+    laddr = "127.0.0.1";
 
-  if (laddr == NULL) laddr = "127.0.0.1";
-  if (lport == NULL) lport = "42425";
-  if (raddr == NULL) raddr = "127.0.0.1";
-  if (rport == NULL) rport = "42424";
+  if ((lport = getenv("PCIE_INET_LPORT")) == NULL)
+    lport = "42425";
+
+  if ((raddr = getenv("PCIE_INET_RADDR")) == NULL)
+    raddr = "127.0.0.1";
+
+  if ((rport = getenv("PCIE_INET_RPORT")) == NULL)
+    rport = "42424";
+
+  if ((s = getenv("PCIE_VENDOR_ID")) != NULL)
+    vendor_id = (unsigned int)strtoul(s, NULL, 16);
+
+  if ((s = getenv("PCIE_DEVICE_ID")) != NULL)
+    device_id = (unsigned int)strtoul(s, NULL, 16);
+
+#if (PCIE_BAR_COUNT >= 1)
+  if ((s = getenv("PCIE_BAR0_SIZE")) != NULL)
+    bar_size[0] = (size_t)strtoul(s, NULL, 16);
+  bar_readfn[0] = on_bar0_read;
+  bar_writefn[0] = on_bar0_write;
+#endif
+
+#if (PCIE_BAR_COUNT >= 2)
+  if ((s = getenv("PCIE_BAR1_SIZE")) != NULL)
+    bar_size[1] = (size_t)strtoul(s, NULL, 16);
+  bar_readfn[1] = on_bar1_read;
+  bar_writefn[1] = on_bar1_write;
+#endif
+
+#if (PCIE_BAR_COUNT >= 3)
+  if ((s = getenv("PCIE_BAR2_SIZE")) != NULL)
+    bar_size[2] = (size_t)strtoul(s, NULL, 16);
+  bar_readfn[2] = on_bar2_read;
+  bar_writefn[2] = on_bar2_write;
+#endif
+
+#if (PCIE_BAR_COUNT >= 4)
+  if ((s = getenv("PCIE_BAR3_SIZE")) != NULL)
+    bar_size[3] = (size_t)strtoul(s, NULL, 16);
+  bar_readfn[3] = on_bar3_read;
+  bar_writefn[3] = on_bar3_write;
+#endif
+
+#if (PCIE_BAR_COUNT >= 5)
+  if ((s = getenv("PCIE_BAR4_SIZE")) != NULL)
+    bar_size[4] = (size_t)strtoul(s, NULL, 16);
+  bar_readfn[4] = on_bar4_read;
+  bar_writefn[4] = on_bar4_write;
+#endif
+
+#if (PCIE_BAR_COUNT >= 6)
+  if ((s = getenv("PCIE_BAR5_SIZE")) != NULL)
+    bar_size[5] = (size_t)strtoul(s, NULL, 16);
+  bar_readfn[5] = on_bar5_read;
+  bar_writefn[5] = on_bar5_write;
+#endif
 
   pipe(c->ev_fds);
 
@@ -247,9 +324,10 @@ static void* thread_entry(void* fu)
 
   pcie_init_net(dev, laddr, lport, raddr, rport);
   pcie_add_event(dev, c->ev_fds[0], on_event, c);
-  pcie_set_vendorid(dev, 0x2a2a);
-  pcie_set_deviceid(dev, 0x2b2b);
-  pcie_set_bar(dev, 1, 0x100, on_bar1_read, on_bar1_write, c);
+  pcie_set_vendorid(dev, vendor_id);
+  pcie_set_deviceid(dev, device_id);
+  for (i = 0; i < PCIE_BAR_COUNT; ++i)
+    pcie_set_bar(dev, i, bar_size[i], bar_readfn[i], bar_writefn[i], c);
 
   /* commit the status */
   c->state = 1;
