@@ -57,11 +57,13 @@ typedef struct pciefw_state
   PCIDevice dev;
   int sock;
   pciefw_props_t props;
-#define PCI_NBARS 6
-  MemoryRegion bar_region[PCI_NBARS];
-  pciefw_mmio_t mmio[PCI_NBARS];
-  size_t bar_size[PCI_NBARS];
+  unsigned int has_probed;
+  MemoryRegion bar_region[PCI_NUM_REGIONS];
+  pciefw_mmio_t mmio[PCI_NUM_REGIONS];
+  size_t bar_size[PCI_NUM_REGIONS];
   struct pciefw_msg* msg;
+  QemuOptsList* optlist;
+  QemuOpts* opts;
 } pciefw_state_t;
 
 
@@ -316,6 +318,14 @@ static int pciefw_send_msi(pciefw_state_t* state)
 
 /* qemu device io operations */
 
+static int pciefw_connect_probe_device(pciefw_state_t* state);
+
+static int pciefw_connect_if_unconnected(pciefw_state_t* state)
+{
+  if (state->sock != -1) return 0;
+  return pciefw_connect_probe_device(state);
+}
+
 static uint64_t pciefw_mmio_read
 (void* opaque, target_phys_addr_t addr, unsigned width)
 {
@@ -324,6 +334,8 @@ static uint64_t pciefw_mmio_read
   int err;
 
   PRINTF("%s (%u+" TARGET_FMT_plx ")\n", __FUNCTION__, mmio->bar, addr);
+
+  if (pciefw_connect_if_unconnected(mmio->state) == -1) return (uint64_t)-1;
 
   err = pciefw_send_read_mem(mmio->state, mmio->bar, addr, width, &data);
   return err ? (uint64_t)-1 : data;
@@ -334,6 +346,9 @@ static void pciefw_mmio_write
 {
   pciefw_mmio_t* const mmio = opaque;
   PRINTF("%s (%u+" TARGET_FMT_plx ", %lx)\n", __FUNCTION__, mmio->bar, addr, data);
+
+  if (pciefw_connect_if_unconnected(mmio->state) == -1) return ;
+
   pciefw_send_write_mem(mmio->state, mmio->bar, addr, width, data);
 }
 
@@ -344,6 +359,8 @@ static uint32_t pciefw_read_config(PCIDevice* dev, uint32_t addr, int width)
   uint64_t data = 0;
 
   PRINTF("%s (" TARGET_FMT_plx ")\n", __FUNCTION__, (unsigned long)addr);
+
+  if (pciefw_connect_if_unconnected(state) == -1) return (uint32_t)-1;
 
 #if 0
   return pci_default_read_config(dev, addr, width);
@@ -362,11 +379,11 @@ static void pciefw_write_config
 
   /* TODO: some write need to be filtered (PCI_BASE_ADDRESS_N) ? */
 
-  pciefw_send_write_config(state, addr, width, data);
-#if 1 /* TODO: useful? */
+  if (pciefw_connect_if_unconnected(state) != -1)
+    pciefw_send_write_config(state, addr, width, data);
+
+  /* write even if not connected */
   pci_default_write_config(dev, addr, data, width);
-  msi_write_config(dev, addr, data, width);
-#endif
 }
 
 static const MemoryRegionOps pciefw_mmio_ops =
@@ -403,8 +420,21 @@ static void pciefw_on_read(void* opaque)
   }
 
   err = pciefw_recv_msg(state, msg);
-  if (err == -1) { PERROR(); return ; }
-  else if (err == 1) { return ; } /* icmp_unreachable case */
+
+  /* error or disconnection */
+  if (err != 0)
+  {
+    PRINTF("error, eventually disconncted\n");
+
+    if (state->sock != -1)
+    {
+      qemu_set_fd_handler(state->sock, NULL, NULL, NULL);
+      closesocket(state->sock);
+      state->sock = -1;
+    }
+
+    return ;
+  }
 
   switch (msg->op)
   {
@@ -445,75 +475,48 @@ static inline void check_props(pciefw_state_t* s)
   if (s->props.rport == NULL) s->props.rport = (char*)"42425";
 }
 
-static int pciefw_pci_init(PCIDevice* dev)
+static void pciefw_unprobe_device(pciefw_state_t* state)
 {
-  pciefw_state_t* const state = DO_UPCAST(pciefw_state_t, dev, dev);
   unsigned int i;
-  uint8_t* pci_conf;
-  QemuOptsList* optlist;
-  QemuOpts* opts;
 
-  PRINTF("%s\n", __FUNCTION__);
+  PRINTF("unprobing device\n");
 
-  check_props(state);
-
-  /* preallocate message buffer large enough */
-
-  state->msg = g_malloc(PCIEFW_MSG_MAX_SIZE);
-  if (state->msg == NULL) { return -1; }
-
-  /* open inet socket */
-
-  optlist = g_malloc0(offsetof(QemuOptsList, desc) + sizeof(QemuOptDesc));
-  if (optlist == NULL) { g_free(state->msg); return -1; }
-
-  optlist->name = "inet_optlist";
-  optlist->head.tqh_first = NULL;
-  optlist->head.tqh_last = &optlist->head.tqh_first;
-
-  opts = qemu_opts_create(optlist, NULL, 0, NULL);
-  if (opts == NULL)
+  if (state->has_probed == 1)
   {
-    PRINTF("opts == NULL\n");
-    g_free(state->msg);
-    g_free(optlist);
-    return -1;
+    msi_uninit(&state->dev);
+
+    for (i = 0; i < PCI_NUM_REGIONS; ++i)
+    {
+      PCIIORegion* const r = &state->dev.io_regions[i];
+      if (r->size && (r->addr != PCI_BAR_UNMAPPED))
+	memory_region_del_subregion(r->address_space, r->memory);
+      if (state->bar_size[i])
+	memory_region_destroy(&state->bar_region[i]);
+    }
+
+    state->has_probed = 0;
   }
+}
 
-  qemu_opt_set(opts, "host", state->props.raddr);
-  qemu_opt_set(opts, "port", state->props.rport);
-  qemu_opt_set(opts, "localaddr", state->props.laddr);
-  qemu_opt_set(opts, "localport", state->props.lport);
+static void pciefw_probe_device(pciefw_state_t* state)
+{
+  uint8_t* const pci_conf = state->dev.config;
+  unsigned int i;
 
-#if (CONFIG_USE_UDP == 1)
-  state->sock = inet_dgram_opts(opts);
-#else
-  optlist->desc[0].name = "block";
-  optlist->desc[0].type = QEMU_OPT_BOOL;
-  optlist->desc[0].help = "";
-  qemu_opt_set_bool(opts, "block", true);
-  state->sock = inet_connect_opts(opts, NULL, NULL);
-#endif /* CONFIG_USE_UDP */
+  PRINTF("probing device\n");
 
-  qemu_opts_del(opts);
-  g_free(optlist);
+  /* undo any previous allocation */
+  pciefw_unprobe_device(state);
 
-  if (state->sock == -1)
-  {
-    PRINTF("state->sock == -1\n");
-    g_free(state->msg);
-    return -1;
-  }
-
-  pci_conf = state->dev.config;
   pci_conf[PCI_COMMAND] = PCI_COMMAND_IO | PCI_COMMAND_MEMORY;
 
   /* read remote bars and register corresponding memory regions */
 
-  for (i = 0; i < PCI_NBARS; ++i)
+  for (i = 0; i < PCI_NUM_REGIONS; ++i)
   {
     const uintptr_t config_addr = PCI_BASE_ADDRESS_0 + i * 4;
     uint32_t bar_size;
+    uint32_t bar_addr;
 
     state->bar_size[i] = 0;
 
@@ -522,6 +525,11 @@ static int pciefw_pci_init(PCIDevice* dev)
 
     if (pciefw_send_read_config(state, config_addr, 4, &bar_size))
       { PERROR(); continue ; }
+
+    /* restore the bar address */
+    bar_addr = *(uint32_t*)(pci_conf + PCI_BASE_ADDRESS_0 + i * 4);
+    PRINTF("BAR_ADDR: 0x%lx\n", (uint64_t)bar_addr);
+    pciefw_send_write_config(state, config_addr, 4, (uint64_t)bar_addr);
 
 #ifndef PCI_ADDR_FLAG_MASK
 # define PCI_ADDR_FLAG_MASK 0xf
@@ -558,8 +566,81 @@ static int pciefw_pci_init(PCIDevice* dev)
   /* TODO: check msi_enabled on remote device */
   if (msi_init(&state->dev, 0x00, 1, false, false) < 0) { PERROR(); }
 
+  state->has_probed = 1;
+}
+
+static int pciefw_connect_probe_device(pciefw_state_t* state)
+{
+#if (CONFIG_USE_UDP == 1)
+  state->sock = inet_dgram_opts(state->opts);
+#else
+  state->sock = inet_connect_opts(state->opts, NULL, NULL);
+#endif
+  if (state->sock == -1)
+  {
+    PRINTF("failed to connect\n");
+    return -1;
+  }
+
+  PRINTF("device connected\n");
+
+  pciefw_probe_device(state);
+
   /* register the fd handler for qemu */
   qemu_set_fd_handler(state->sock, pciefw_on_read, NULL, state);
+
+  return 0;
+}
+
+static int pciefw_pci_init(PCIDevice* dev)
+{
+  pciefw_state_t* const state = DO_UPCAST(pciefw_state_t, dev, dev);
+
+  PRINTF("%s\n", __FUNCTION__);
+
+  check_props(state);
+
+  state->sock = -1;
+  state->has_probed = 0;
+
+  /* preallocate message buffer large enough */
+
+  state->msg = g_malloc(PCIEFW_MSG_MAX_SIZE);
+  if (state->msg == NULL) { return -1; }
+
+  /* open inet socket */
+
+  state->optlist = g_malloc0(offsetof(QemuOptsList, desc) + sizeof(QemuOptDesc));
+  if (state->optlist == NULL) { g_free(state->msg); return -1; }
+
+  state->optlist->name = "inet_optlist";
+  state->optlist->head.tqh_first = NULL;
+  state->optlist->head.tqh_last = &state->optlist->head.tqh_first;
+
+  state->opts = qemu_opts_create(state->optlist, NULL, 0, NULL);
+  if (state->opts == NULL)
+  {
+    PRINTF("opts == NULL\n");
+    g_free(state->msg);
+    g_free(state->optlist);
+    return -1;
+  }
+
+  qemu_opt_set(state->opts, "host", state->props.raddr);
+  qemu_opt_set(state->opts, "port", state->props.rport);
+  qemu_opt_set(state->opts, "localaddr", state->props.laddr);
+  qemu_opt_set(state->opts, "localport", state->props.lport);
+
+#if (CONFIG_USE_UDP == 0)
+  state->optlist->desc[0].name = "block";
+  state->optlist->desc[0].type = QEMU_OPT_BOOL;
+  state->optlist->desc[0].help = "";
+  qemu_opt_set_bool(state->opts, "block", true);
+#endif /* CONFIG_USE_UDP */
+
+  pciefw_connect_probe_device(state);
+
+  /* do not report connection error to qemu */
 
   return 0;
 }
@@ -574,14 +655,16 @@ static void pciefw_pci_exit(PCIDevice* dev)
 
   msi_uninit(dev);
 
-  for (i = 0; i < PCI_NBARS; ++i)
+  for (i = 0; i < PCI_NUM_REGIONS; ++i)
   {
     if (state->bar_size[i] == 0) continue ;
     memory_region_destroy(&state->bar_region[i]);
   }
 
   qemu_set_fd_handler(state->sock, NULL, NULL, NULL);
-  close(state->sock);
+  closesocket(state->sock);
+  qemu_opts_del(state->opts);
+  g_free(state->optlist);
 
   g_free(state->msg);
 }
@@ -615,12 +698,20 @@ static void pciefw_class_init(ObjectClass* klass, void* data)
   dc->props = pciefw_props;
 }
 
+static void pciefw_class_fini(ObjectClass* klass, void* data)
+{
+  PRINTF("%s TODO\n", __FUNCTION__);
+
+  /* TODO: release clients */
+}
+
 static TypeInfo pciefw_type_info =
 {
   .name = "pciefw",
   .parent = TYPE_PCI_DEVICE,
   .instance_size = sizeof(pciefw_state_t),
   .class_init = pciefw_class_init,
+  .class_finalize = pciefw_class_fini,
 };
 
 static void pciefw_register_type(void)
