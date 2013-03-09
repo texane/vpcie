@@ -119,13 +119,15 @@ The use of hardware virtualization in RASHPA
   VPCIE, a Virtual PCIE framework made for RASHPA
   \begin{itemize}
   \item virtualize PCIE endpoints
-  \item generic enough to fit other projects
   \item the backend software must run \textbf{without any modification}
-  \item should be possible to use VHDL for device simulation
+  \item generic enough to fit other projects
+  \item virtualized device implementation usable in the real device
+  \item thus, possible to use VHDL in the virtualized device
   \end{itemize}
 \end{frame}
 
 \begin{frame}{VPCIE - opensource building blocks}
+  \begin{tiny}
   QEMU 
   \begin{itemize}
   \item http://wiki.qemu.org/Main\_Page
@@ -138,6 +140,12 @@ The use of hardware virtualization in RASHPA
   \item VHDL frontend for GCC
   \item used to implement device in VHDL
   \end{itemize}
+  GTKWAVE
+  \begin{itemize}
+  \item http://gtkwave.sourceforge.net
+  \item used to view simulated design signals in time
+  \end{itemize}
+  \end{tiny}
 \end{frame}
 
 \begin{frame}{VPCIE - implementation}
@@ -149,6 +157,12 @@ The use of hardware virtualization in RASHPA
 \begin{frame}{VPCIE - RASHPA possible setup}
   \begin{center}
   \includegraphics[width=80mm]{pic/dv_vpcie/main.jpeg}
+  \end{center}
+\end{frame}
+
+\begin{frame}{VPCIE - other possible setups}
+  \begin{center}
+  \includegraphics[width=80mm]{pic/dv_ebone/main.jpeg}
   \end{center}
 \end{frame}
 
