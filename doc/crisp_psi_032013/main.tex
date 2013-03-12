@@ -22,11 +22,12 @@ The use of hardware virtualization in RASHPA
 \end{center}
 \end{frame}
 
+\setbeamertemplate{items}[circle]
 \begin{frame}{Contents}
   \begin{itemize}
   \item RASHPA context reminder
   \item Device virtualization
-  \item The VPCIE framework
+  \item The VPCIe framework
   \end{itemize}
 \end{frame}
 
@@ -50,23 +51,23 @@ The use of hardware virtualization in RASHPA
   \begin{small}
   Still being prototyped
   \begin{itemize}
-  \item how to simplify hardware software codesign ?
+  \item how to simplify hardware software \textbf{codesign} ?
   \end{itemize}
 
-  Aims at using multiple PCIE links. Yet, the first prototype is single link
+  Aims at using multiple PCIe links. Yet, the first prototype is single link
   \begin{itemize}
-  \item how to scale the prototype platform ?
+  \item how to \textbf{scale} the prototype platform ?
   \end{itemize}
 
-  Well positionned to interface with PCIE based accelerating technologies
+  Well positionned to interface with PCIe based accelerating technologies
   \begin{itemize}
-  \item how to test unavailable (too recent or expensive) hardware ?
+  \item how to test \textbf{unavailable hardware} (too recent or expensive) ?
   \end{itemize}
   \end{small}
 \end{frame}
 
-\begin{frame}{Context - solution}
-  \begin{center} Solution: \textbf{device virtualization} \end{center}
+\begin{frame}{Context - Our approach}
+  \begin{center} Our approach: \textbf{device virtualization} \end{center}
 \end{frame}
 
 \begin{frame}{Device virtualization - main idea}
@@ -97,7 +98,7 @@ The use of hardware virtualization in RASHPA
   The interface is then instrumented to redirect access to the virtual device
   \begin{itemize}
   \item software hooking (code instrumentation, library replacing)
-  \item instruction emulation (QEMU)
+  \item \textbf{instruction emulation (QEMU)}
   \item hardware traps (page protection)
   \item architecture support (INTEL VT)
   \item paravirtualization (XEN)
@@ -115,77 +116,88 @@ The use of hardware virtualization in RASHPA
   \end{itemize}
 \end{frame}
 
-\begin{frame}{VPCIE - goals}
-  VPCIE, a Virtual PCIE framework made for RASHPA
+\begin{frame}{VPCIe - introduction and goals}
+  VPCIe: a framework to virtualize PCIe devices
   \begin{itemize}
-  \item virtualize PCIE endpoints
+  \item made at the ESRF in the context of CRISP/RASHPA
+    \setbeamertemplate{items}[triangle]
+    \begin{itemize}
+    \item still, generic enough to fit other project needs
+    \end{itemize}
+    \setbeamertemplate{items}[circle]
   \item the backend software must run \textbf{without any modification}
-  \item generic enough to fit other projects
-  \item virtualized device implementation usable in the real device
-  \item thus, possible to use VHDL in the virtualized device
+  \item virtual device implementation usable in the real device
+    \setbeamertemplate{items}[triangle]
+    \begin{itemize}
+    \item made possible with \textbf{VHDL}
+    \end{itemize}
+    \setbeamertemplate{items}[circle]
   \end{itemize}
 \end{frame}
 
-\begin{frame}{VPCIE - opensource building blocks}
-  \begin{tiny}
-  QEMU 
+\begin{frame}{VPCIe - opensource building blocks}
+  VPCIe mostly relies on opensource projects
+  \newline
+
+  \textbf{QEMU}
   \begin{itemize}
   \item http://wiki.qemu.org/Main\_Page
   \item architecture emulator (X86\_64, ARM ...)
-  \item used to trap PCIE hardware accesses
+  \item used to trap PCIe hardware accesses
   \end{itemize}
-  GHDL
+
+  \textbf{GHDL}
   \begin{itemize}
   \item http://ghdl.free.fr
   \item VHDL frontend for GCC
   \item used to implement device in VHDL
   \end{itemize}
-  GTKWAVE
-  \begin{itemize}
-  \item http://gtkwave.sourceforge.net
-  \item used to view simulated design signals in time
-  \end{itemize}
-  \end{tiny}
+
 \end{frame}
 
-\begin{frame}{VPCIE - implementation}
+\begin{frame}{VPCIe - implementation}
   \begin{center}
   \includegraphics[width=80mm]{pic/dv_implem/main.jpeg}
   \end{center}
 \end{frame}
 
-\begin{frame}{VPCIE - RASHPA possible setup}
+\begin{frame}{VPCIe - RASHPA possible setup}
   \begin{center}
   \includegraphics[width=80mm]{pic/dv_vpcie/main.jpeg}
   \end{center}
 \end{frame}
 
-\begin{frame}{VPCIE - other possible setups}
+\begin{frame}{VPCIe - tested on other ESRF prototype hardware}
   \begin{center}
   \includegraphics[width=80mm]{pic/dv_ebone/main.jpeg}
   \end{center}
 \end{frame}
 
-\begin{frame}{VPCIE - RASHPA backend}
+\begin{frame}{VPCIe - RASHPA backend}
   RASHPA backend is a full featured LINUX system
   \begin{itemize}
   \item runs in a QEMU virtual machine
-  \item PCIE accesses are trapped and sent over TCP to the devices
-  \item PCIE forwarder is available as a QEMU patch
+  \item PCIe accesses are trapped and sent over TCP to the devices
+  \item PCIe forwarder is available as a QEMU patch
+    \setbeamertemplate{items}[triangle]
+    \begin{itemize}
+    \item discussions in progress for a merge
+    \end{itemize}
+    \setbeamertemplate{items}[circle]
   \end{itemize}
 \end{frame}
 
-\begin{frame}{VPCIE - RASHPA devices}
-  RASHPA devices
+\begin{frame}{VPCIe - RASHPA emulated devices}
+  RASHPA emulated devices
   \begin{itemize}
-  \item run as a LINUX processes, can be duplicated at will
-  \item can be implemented in C or VHDL
-  \item PCIE made simple, focus on device logic
+  \item run as a LINUX processes, can be \textbf{duplicated} at will
+  \item can be implemented in \textbf{C} or \textbf{VHDL}
+  \item PCIe made \textbf{simple}, focus on device logic
   \end{itemize}
 \end{frame}
 
 \begin{frame}[containsverbatim]
- \frametitle{VPCIE - VHDL interface}
+ \frametitle{VPCIe - emulated device VHDL interface}
  \begin{tiny}
  \lstset{commentstyle=\color{blue}}
  \lstset{language=VHDL}
@@ -218,7 +230,7 @@ end entity;
 \end{frame}
 
 \begin{frame}[containsverbatim]
- \frametitle{VPCIE - C interface}
+ \frametitle{VPCIe - emulated device C interface}
  \begin{tiny}
  \lstset{commentstyle=\color{blue}}
  \lstset{language=C}
@@ -233,7 +245,7 @@ int pcie_loop(pcie_dev_t*);
 int pcie_set_deviceid(pcie_dev_t*, ...);
 int pcie_set_vendorid(pcie_dev_t*, ...);
 
-/* PCIE BAR access handlers */
+/* PCIe BAR access handlers */
 typedef void (*pcie_readfn_t)(uint64_t, void*, size_t, void*);
 typedef void (*pcie_writefn_t)(uint64_t, const void*, size_t, void*);
 int pcie_set_bar(pcie_dev_t*, ..., pcie_readfn_t, pcie_writefn_t, ...);
@@ -248,7 +260,7 @@ int pcie_send_msi(pcie_dev_t*);
  \end{tiny}
 \end{frame}
 
-\begin{frame}{VPCIE - benefits}
+\begin{frame}{VPCIe - benefits}
   Hardware software codesign
   \begin{itemize}
   \item reduce development time
@@ -258,7 +270,7 @@ int pcie_send_msi(pcie_dev_t*);
 
   Platform scaling
   \begin{itemize}
-  \item one PCIE endpoint per LINUX process
+  \item one PCIe endpoint per LINUX process
   \end{itemize}
 
   Investigate unavailable technologies
@@ -267,7 +279,7 @@ int pcie_send_msi(pcie_dev_t*);
   \end{itemize}
 \end{frame}
 
-\begin{frame}{VPCIE - more benefits}
+\begin{frame}{VPCIe - more benefits}
   Virtual machine
   \begin{itemize}
   \item resources easily changed (RAM amount ...)
@@ -276,16 +288,23 @@ int pcie_send_msi(pcie_dev_t*);
   \end{itemize}
   Fault injection
   \begin{itemize}
-  \item LINUX and software response to PCIE device disconnection
+  \item LINUX and software response to PCIe device disconnection
   \end{itemize}
 \end{frame}
 
-\begin{frame}{VPCIE - availability}
-  \begin{center}https://github.com/texane/vpcie\end{center}
+\begin{frame}{VPCIe - availability}
+  VPCIe source is available online
+  \begin{itemize}
+  \item https://github.com/texane/vpcie
+  \item documentation still poor, but clear examples
+  \item feedbacks or contributions are welcome
+  \end{itemize}
 \end{frame}
 
-\begin{frame}{VPCIE - demo}
-  \begin{center}demo\end{center}
+\begin{frame}{VPCIe - questions}
+  \begin{center} Thanks for your attention. \end{center}
+  \begin{center} Feel free to ask for a demo after the talk. \end{center}
+  \begin{center} Any question? \end{center}
 \end{frame}
 
 \end{document}
