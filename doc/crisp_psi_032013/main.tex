@@ -38,11 +38,11 @@ The use of hardware virtualization in RASHPA
   \begin{tiny}
   RASHPA basic goal is to transfer \textbf{detector} memory contents into
   a \textbf{backend} for further processing, visualisation or storage. To
-  do so, RASHPA relies on low level hardware and software components\\
+  do so, RASHPA relies on low level hardware and software components:\\
   \begin{itemize}
-  \item data transport layer, currently PCI Express over cable
-  \item a data transmission engine implemented on XILINX FPGA
-  \item LINUX kernel device driver and userland software
+  \item data \textbf{transport layer}, currently PCI Express over cable
+  \item a data \textbf{transmission engine} implemented on XILINX FPGA
+  \item a LINUX \textbf{software stack}, ie. kernel device driver and applications
   \end{itemize}
   \end{tiny}
 \end{frame}
@@ -82,7 +82,7 @@ The use of hardware virtualization in RASHPA
   \end{small}
 \end{frame}
 
-\begin{frame}{Device virtualization - hardware access redirection (0)}
+\begin{frame}{Device virtualization - hardware access redirection assumptions}
   \begin{small}
   Virtualization assumes device accesses are made using a known interface
   \begin{itemize}
@@ -93,7 +93,7 @@ The use of hardware virtualization in RASHPA
   \end{small}
 \end{frame}
 
-\begin{frame}{Device virtualization - hardware access redirection (1)}
+\begin{frame}{Device virtualization - hardware access redirection mechanisms}
   \begin{small}
   The interface is then instrumented to redirect access to the virtual device
   \begin{itemize}
