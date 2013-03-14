@@ -18,6 +18,7 @@ component endpoint is
   clk: in std_ulogic;
 
   req_en: out std_ulogic;
+  req_ack: in std_ulogic;
   req_wr: out std_ulogic;
   req_bar: out std_ulogic_vector(BAR_WIDTH - 1 downto 0);
   req_addr: out std_ulogic_vector(ADDR_WIDTH - 1 downto 0);
