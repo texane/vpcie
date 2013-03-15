@@ -9,8 +9,6 @@ constant ADDR_WIDTH: natural := 64;
 constant DATA_WIDTH: natural := 64;
 constant SIZE_WIDTH: natural := 16;
 constant BAR_WIDTH: natural := 3;
-
--- WARNING: change send_write in pcie_glue.vhdl, if still used
 constant PAYLOAD_WIDTH: natural := 1024;
 
 component endpoint is
