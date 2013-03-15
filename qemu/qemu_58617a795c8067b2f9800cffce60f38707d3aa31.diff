@@ -23,10 +23,10 @@ index 6dfebd2..521958e 100644
  hw-obj-$(CONFIG_PUV3) += puv3_ost.o
 diff --git a/hw/pciefw.c b/hw/pciefw.c
 new file mode 100644
-index 0000000..f072563
+index 0000000..c00f147
 --- /dev/null
 +++ b/hw/pciefw.c
-@@ -0,0 +1,723 @@
+@@ -0,0 +1,727 @@
 +/* TODO: WRITE_MEM can come concurrently with recv(). use pending message list. */
 +
 +
@@ -374,7 +374,7 @@ index 0000000..f072563
 +(void* opaque, target_phys_addr_t addr, uint64_t data, unsigned width)
 +{
 +  pciefw_mmio_t* const mmio = opaque;
-+  PRINTF("%s (%u+" TARGET_FMT_plx ", %lx)\n", __FUNCTION__, mmio->bar, addr, data);
++  PRINTF("%s (%u+%u %x)\n", __FUNCTION__, mmio->bar, (uint32_t)addr, (uint32_t)data);
 +
 +  if (pciefw_connect_if_unconnected(mmio->state) == -1) return ;
 +
@@ -387,7 +387,7 @@ index 0000000..f072563
 +
 +  uint64_t data = 0;
 +
-+  PRINTF("%s (" TARGET_FMT_plx ")\n", __FUNCTION__, (unsigned long)addr);
++  PRINTF("%s (%x)\n", __FUNCTION__, addr);
 +
 +  if (pciefw_connect_if_unconnected(state) == -1) return (uint32_t)-1;
 +
@@ -557,7 +557,7 @@ index 0000000..f072563
 +
 +    /* restore the bar address */
 +    bar_addr = *(uint32_t*)(pci_conf + PCI_BASE_ADDRESS_0 + i * 4);
-+    PRINTF("BAR_ADDR: 0x%lx\n", (uint64_t)bar_addr);
++    PRINTF("__BAR_ADDR: 0x%x\n", bar_addr);
 +    pciefw_send_write_config(state, config_addr, 4, (uint64_t)bar_addr);
 +
 +#ifndef PCI_ADDR_FLAG_MASK
@@ -568,7 +568,7 @@ index 0000000..f072563
 +
 +    state->bar_size[i] = (size_t)bar_size;
 +
-+    PRINTF("bar[%u]: " TARGET_FMT_plx "\n", i, state->bar_size[i]);
++    PRINTF("bar[%u]: %u\n", i, bar_size);
 +
 +    state->mmio[i].bar = i;
 +    state->mmio[i].state = state;
@@ -586,9 +586,13 @@ index 0000000..f072563
 +    (
 +     &state->dev,
 +     i,
-+     PCI_BASE_ADDRESS_SPACE_MEMORY | PCI_BASE_ADDRESS_MEM_TYPE_64,
++     PCI_BASE_ADDRESS_SPACE_MEMORY,
 +     &state->bar_region[i]
 +    );
++
++    /* pci_register changes the address */
++    bar_addr = *(uint32_t*)(pci_conf + PCI_BASE_ADDRESS_0 + i * 4);
++    pciefw_send_write_config(state, config_addr, 4, (uint64_t)bar_addr);
 +  }
 +
 +  /* initialize msi */

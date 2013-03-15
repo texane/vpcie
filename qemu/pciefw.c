@@ -345,7 +345,7 @@ static void pciefw_mmio_write
 (void* opaque, target_phys_addr_t addr, uint64_t data, unsigned width)
 {
   pciefw_mmio_t* const mmio = opaque;
-  PRINTF("%s (%u+" TARGET_FMT_plx ", %lx)\n", __FUNCTION__, mmio->bar, addr, data);
+  PRINTF("%s (%u+%u %x)\n", __FUNCTION__, mmio->bar, (uint32_t)addr, (uint32_t)data);
 
   if (pciefw_connect_if_unconnected(mmio->state) == -1) return ;
 
@@ -358,7 +358,7 @@ static uint32_t pciefw_read_config(PCIDevice* dev, uint32_t addr, int width)
 
   uint64_t data = 0;
 
-  PRINTF("%s (" TARGET_FMT_plx ")\n", __FUNCTION__, (unsigned long)addr);
+  PRINTF("%s (%x)\n", __FUNCTION__, addr);
 
   if (pciefw_connect_if_unconnected(state) == -1) return (uint32_t)-1;
 
@@ -528,7 +528,7 @@ static void pciefw_probe_device(pciefw_state_t* state)
 
     /* restore the bar address */
     bar_addr = *(uint32_t*)(pci_conf + PCI_BASE_ADDRESS_0 + i * 4);
-    PRINTF("BAR_ADDR: 0x%lx\n", (uint64_t)bar_addr);
+    PRINTF("__BAR_ADDR: 0x%x\n", bar_addr);
     pciefw_send_write_config(state, config_addr, 4, (uint64_t)bar_addr);
 
 #ifndef PCI_ADDR_FLAG_MASK
@@ -539,7 +539,7 @@ static void pciefw_probe_device(pciefw_state_t* state)
 
     state->bar_size[i] = (size_t)bar_size;
 
-    PRINTF("bar[%u]: " TARGET_FMT_plx "\n", i, state->bar_size[i]);
+    PRINTF("bar[%u]: %u\n", i, bar_size);
 
     state->mmio[i].bar = i;
     state->mmio[i].state = state;
@@ -557,9 +557,13 @@ static void pciefw_probe_device(pciefw_state_t* state)
     (
      &state->dev,
      i,
-     PCI_BASE_ADDRESS_SPACE_MEMORY | PCI_BASE_ADDRESS_MEM_TYPE_64,
+     PCI_BASE_ADDRESS_SPACE_MEMORY,
      &state->bar_region[i]
     );
+
+    /* pci_register changes the address */
+    bar_addr = *(uint32_t*)(pci_conf + PCI_BASE_ADDRESS_0 + i * 4);
+    pciefw_send_write_config(state, config_addr, 4, (uint64_t)bar_addr);
   }
 
   /* initialize msi */
