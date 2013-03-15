@@ -117,21 +117,21 @@ static ssize_t pciefw_recv_buf(int fd, void* buf, size_t max_size)
   if (n <= 0) { PERROR(); return -1; }
   return n;
 #else
-  pciefw_header_t h;
+  pciefw_header_t* const h = (pciefw_header_t*)buf;
   ssize_t n;
   size_t rem_size;
 
   /* header always comes first */
-  if (max_size < sizeof(h)) { PERROR(); return -1; }
-  n = recv(fd, (void*)&h, sizeof(h), MSG_WAITALL);
-  if (n != sizeof(h)) { PERROR(); return -1; }
+  if (max_size < sizeof(pciefw_header_t)) { PERROR(); return -1; }
+  n = recv(fd, (void*)h, sizeof(pciefw_header_t), MSG_WAITALL);
+  if (n != sizeof(pciefw_header_t)) { PERROR(); return -1; }
 
-  if (h.size > max_size) { PERROR(); return -1; }
+  if (h->size > max_size) { PERROR(); return -1; }
 
-  rem_size = h.size - sizeof(h);
-  n = recv(fd, (uint8_t*)buf + sizeof(h), rem_size, MSG_WAITALL);
+  rem_size = h->size - sizeof(pciefw_header_t);
+  n = recv(fd, (uint8_t*)buf + sizeof(pciefw_header_t), rem_size, MSG_WAITALL);
   if (n != (ssize_t)rem_size) { PERROR(); return -1; }
-  return (ssize_t)h.size;
+  return (ssize_t)h->size;
 #endif /* (CONFIG_USE_UDP == 1) */
 }
 
@@ -161,11 +161,14 @@ static int pciefw_send_buf(int fd, void* buf, size_t size)
 }
 
 
+static void process_msg(pciefw_state_t*, pciefw_msg_t*);
+static inline int pciefw_recv_msg(pciefw_state_t*, pciefw_msg_t*);
+
 static int pciefw_recv_reply(pciefw_state_t* state, pciefw_reply_t* r)
 {
   while (1)
   {
-    ssize_t n;
+    int err;
     fd_set fds;
 
     FD_ZERO(&fds);
@@ -180,9 +183,30 @@ static int pciefw_recv_reply(pciefw_state_t* state, pciefw_reply_t* r)
       return -1;
     }
 
-    n = pciefw_recv_buf(state->sock, (void*)r, sizeof(*r));
-    if (n != 0) return (n == sizeof(*r)) ? 0 : -1;
-    /* redo, icmp_unreachable case */
+    err = pciefw_recv_msg(state, state->msg);
+    if (err == -1)
+    {
+      PERROR();
+      return -1;
+    }
+    else if (err == 0)
+    {
+      /* FIXME: should use an operation identifier ... */
+      /* it works since sizeof(reply) < sizeof(msg) */
+      if (state->msg->header.size <= sizeof(pciefw_reply_t))
+      {
+	/* FIXME: use message, ie. *r = state->msg */
+	memcpy((void*)r, (const void*)state->msg, sizeof(*r));
+	return 0;
+      }
+      else
+      {
+	/* this is not a reply, process the message */
+	/* then, continue waiting until reply */
+	process_msg(state, state->msg);
+      }
+    }
+    /* else, icmp_unreachable case, redo */
   }
 
   /* not reached */
@@ -261,8 +285,9 @@ static int pciefw_send_read_common
   msg->addr = (uint64_t)addr;
   msg->width = (uint8_t)width;
   msg->size = 0;
-
   if (pciefw_send_msg(state, msg)) { PERROR(); return -1; }
+
+  /* WARNING: msg possibly reused from here */
   if (pciefw_recv_reply(state, &reply)) { PERROR(); return -1; }
 
   switch (width)
@@ -398,6 +423,29 @@ static const MemoryRegionOps pciefw_mmio_ops =
 
 /* network io handlers */
 
+static void process_msg(pciefw_state_t* state, pciefw_msg_t* msg)
+{
+  switch (msg->op)
+  {
+  case PCIEFW_OP_WRITE_MEM:
+    {
+      int err;
+      err = pci_dma_write
+	(&state->dev, (dma_addr_t)msg->addr, msg->data, (dma_addr_t)msg->size);
+      if (err) PRINTF("[!] pci_dma_write error\n");
+      break ;
+    }
+
+  case PCIEFW_OP_MSI:
+    msi_notify(&state->dev, 0);
+    break ;
+
+  default:
+    PRINTF("unimplemented opcode: 0x%x\n", msg->op);
+    break ;
+  }
+}
+
 static void pciefw_on_read(void* opaque)
 {
   pciefw_state_t* const state = opaque;
@@ -420,10 +468,10 @@ static void pciefw_on_read(void* opaque)
   }
 
   err = pciefw_recv_msg(state, msg);
-
-  /* error or disconnection */
   if (err != 0)
   {
+    /* error or disconnection */
+
     PRINTF("error, eventually disconncted\n");
 
     if (state->sock != -1)
@@ -432,28 +480,10 @@ static void pciefw_on_read(void* opaque)
       closesocket(state->sock);
       state->sock = -1;
     }
-
-    return ;
   }
-
-  switch (msg->op)
+  else
   {
-  case PCIEFW_OP_WRITE_MEM:
-    {
-      int err;
-      err = pci_dma_write
-	(&state->dev, (dma_addr_t)msg->addr, msg->data, (dma_addr_t)msg->size);
-      if (err) PRINTF("[!] pci_dma_write error\n");
-      break ;
-    }
-
-  case PCIEFW_OP_MSI:
-    msi_notify(&state->dev, 0);
-    break ;
-
-  default:
-    PRINTF("unimplemented opcode: 0x%x\n", msg->op);
-    break ;
+    process_msg(state, msg);
   }
 }
 
@@ -528,7 +558,6 @@ static void pciefw_probe_device(pciefw_state_t* state)
 
     /* restore the bar address */
     bar_addr = *(uint32_t*)(pci_conf + PCI_BASE_ADDRESS_0 + i * 4);
-    PRINTF("__BAR_ADDR: 0x%x\n", bar_addr);
     pciefw_send_write_config(state, config_addr, 4, (uint64_t)bar_addr);
 
 #ifndef PCI_ADDR_FLAG_MASK
@@ -538,9 +567,6 @@ static void pciefw_probe_device(pciefw_state_t* state)
     if ((bar_size = (~bar_size + 1)) == 0) continue ;
 
     state->bar_size[i] = (size_t)bar_size;
-
-    PRINTF("bar[%u]: %u\n", i, bar_size);
-
     state->mmio[i].bar = i;
     state->mmio[i].state = state;
 
