@@ -396,11 +396,17 @@ LOGIC_TO_UINT_TEMPLATE(32);
 LOGIC_TO_UINT_TEMPLATE(64);
 
 
-static void logic_to_buf(const uint8_t* data, size_t data_size, uint8_t* buf)
+static void logic_to_buf
+(const uint8_t* data, size_t data_size, size_t size, uint8_t* buf)
 {
-  /* convert data[data_size] in logic format to buf */
+  /* convert size byte in data[0, data_size] in logic format to buf */
+
+  /* WARNING: reverse ordering, refer to VHPI standard */
+
   size_t i;
-  for (i = 0; i < data_size; ++i) buf[i] = logic_to_uint8(data + i * 8);
+
+  for (i = 0; i < size; ++i)
+    buf[i] = logic_to_uint8(data + (data_size - 1 - i) * 8);
 }
 
 
@@ -457,23 +463,30 @@ void pcie_glue_send_write_buf
 }
 
 void pcie_glue_send_write
-(const uint8_t* _addr, const uint8_t* _data, const uint8_t* _data_size)
+(
+ const uint8_t* _addr,
+ const uint8_t* _data, const uint8_t* _data_size,
+ const uint8_t* _size
+)
 {
   /* addr: uint64_t */
-  /* data[0 < data_size < PCIE_PAYLOAD_WIDTH] */
   /* data_size: uint16_t */
+  /* size: uint16_t */
+  /* data_size == PCIE_PAYLOAD_WIDTH / 8, the total data buf size */
+  /* 0 < size < (PCIE_PAYLOAD_WIDTH / 8), the user data buf size */  
 
   thread_context_t* const c = &g_thread_context;
   fnode_t* node;
 
   const uint64_t addr = logic_to_uint64(_addr);
   const uint16_t data_size = logic_to_uint16(_data_size);
+  const uint16_t size = logic_to_uint16(_data_size);
 
-  PRINTF("%s, %u@0x%lx\n", __FUNCTION__, data_size, addr);
+  PRINTF("%s, %u/%u @0x%lx\n", __FUNCTION__, size, data_size, addr);
 
-  node = alloc_write_node(PCIE_NET_OP_WRITE_MEM, addr, data_size);
+  node = alloc_write_node(PCIE_NET_OP_WRITE_MEM, addr, size);
 
-  logic_to_buf(_data, data_size, node->u.msg.data);
+  logic_to_buf(_data, data_size, size, node->u.msg.data);
 
   fifo_push_node(&c->tx_fifo, node);
   write(c->ev_fds[1], &evk_push, sizeof(evk_push));

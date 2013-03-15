@@ -37,9 +37,10 @@ begin
  process(rst, clk)
   variable l: line;
 
-  variable var_mwr_addr: unsigned(63 downto 0);
-  variable var_mwr_size: unsigned(15 downto 0);
+  variable var_mwr_addr: unsigned(pcie.ADDR_WIDTH - 1 downto 0);
+  variable var_mwr_size: unsigned(pcie.SIZE_WIDTH - 1 downto 0);
   variable var_mwr_data: unsigned(pcie.PAYLOAD_WIDTH - 1 downto 0);
+  variable var_mwr_data_size: unsigned(pcie.SIZE_WIDTH - 1 downto 0);
 
   variable var_req_is_read: unsigned(7 downto 0);
   variable var_req_bar: unsigned(7 downto 0);
@@ -72,8 +73,10 @@ begin
     writeline(output, l);
     var_mwr_addr := unsigned(mwr_addr);
     var_mwr_data := unsigned(mwr_data);
+    var_mwr_data_size := to_unsigned(pcie.PAYLOAD_WIDTH / 8, pcie.SIZE_WIDTH);
     var_mwr_size := unsigned(mwr_size);
-    work.pcie.glue_send_write(var_mwr_addr, var_mwr_data, var_mwr_size);
+    work.pcie.glue_send_write
+     (var_mwr_addr, var_mwr_data, var_mwr_data_size, var_mwr_size);
    end if;
 
    -- reply
