@@ -142,6 +142,7 @@ begin
   rst => rst,
   clk => clk,
   req_en => req_en,
+  req_ack => '1', -- fixme
   req_wr => req_wr,
   req_bar => req_bar,
   req_addr => req_addr,

@@ -17,6 +17,7 @@ architecture rtl of main is
 
  -- request signals
  signal req_en: std_ulogic;
+ signal req_ack: std_ulogic;
  signal req_wr: std_ulogic;
  signal req_bar: std_ulogic_vector(pcie.BAR_WIDTH - 1 downto 0);
  signal req_addr: std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
@@ -45,6 +46,7 @@ begin
   rst => rst,
   clk => clk,
   req_en => req_en,
+  req_ack => req_ack,
   req_wr => req_wr,
   req_bar => req_bar,
   req_addr => req_addr,
@@ -71,6 +73,7 @@ begin
   rst => rst,
   clk => clk,
   req_en => req_en,
+  req_ack => req_ack,
   req_wr => req_wr,
   req_bar => req_bar,
   req_addr => req_addr,

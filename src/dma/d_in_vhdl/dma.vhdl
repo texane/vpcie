@@ -286,6 +286,7 @@ entity dma is
   clk: in std_ulogic;
 
   req_en: in std_ulogic;
+  req_ack: out std_ulogic;
   req_wr: in std_ulogic;
   req_bar: in std_ulogic_vector(pcie.BAR_WIDTH - 1 downto 0);
   req_addr: in std_ulogic_vector(pcie.ADDR_WIDTH - 1 downto 0);
@@ -344,6 +345,9 @@ architecture rtl of dma is
  constant DMA_BLOCK_SIZE: natural := pcie.PAYLOAD_WIDTH / 8;
 
 begin
+
+ -- FIXME
+ req_ack <= '1';
 
  -- equivlaent to dma_off = dma_counter_reg * DMA_BLOCK_SIZE
  mul_pow2_entity: entity work.mul_pow2
