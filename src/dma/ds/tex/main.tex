@@ -31,9 +31,9 @@ contents to a 64 bits host memory over PCIe. A memory transfer runs from
 start to completion wihtout requiring the host CPU assistance, making it
 available for other computation tasks.
 \paragraph{}
-In this device, the DMA is connected to an internal 32KB BRAM memory whose
-contents are initialized once at main time with an increasing pattern such
-that:
+In this device, the DMA is connected to an internal 32KB addressable BRAM
+memory whose contents are initialized once at main time with an increasing
+pattern such that:
 \begin{center}$bram[i] = seed + i$\end{center}
 \paragraph{}
 $seed$ is a user provided value used to randomize the memory contents.
