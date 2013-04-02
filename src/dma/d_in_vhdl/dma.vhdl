@@ -346,10 +346,7 @@ architecture rtl of dma is
 
 begin
 
- -- FIXME
- req_ack <= '1';
-
- -- equivlaent to dma_off = dma_counter_reg * DMA_BLOCK_SIZE
+ -- equivalent to dma_off = dma_counter_reg * DMA_BLOCK_SIZE
  mul_pow2_entity: entity work.mul_pow2
  generic map
  (
@@ -435,6 +432,7 @@ begin
  begin
   dma_counter_clr <= '0';
   dma_counter_en <= '0';
+  req_ack <= '0';
   mwr_en <= '0';
   msi_en <= '0';
   sta_set_en <= '0';
@@ -485,6 +483,9 @@ begin
     sta_set_en <= '1';
 
     msi_en <= dma_msi_en;
+
+    -- FIXME, could be done earlier
+    req_ack <= '1';
 
    when others =>
 
