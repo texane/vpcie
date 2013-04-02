@@ -20,4 +20,4 @@ export PCIE_BAR1_SIZE=0x1000
 export PCIE_VENDOR_ID=0x2a2a
 export PCIE_DEVICE_ID=0x2b2b
 
-./d_in_vhdl/main
+./hw/d_in_vhdl/main
