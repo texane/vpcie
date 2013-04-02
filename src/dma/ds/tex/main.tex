@@ -25,15 +25,24 @@
 %%
 \newpage
 \section{Theory of operation}
+
+\begin{figure}[!h]
+\begin{center}
+\includegraphics[scale=0.25]{../pic/dma_theory/main.jpeg}
+\end{center}
+\caption{\tiny{DMA diagram}}
+\label{dma_theory}
+\end{figure}
+
 \paragraph{}
 The Direct Memory Access (DMA) engine transfers an internal device memory
 contents to a 64 bits host memory over PCIe. A memory transfer runs from
 start to completion wihtout requiring the host CPU assistance, making it
 available for other computation tasks.
 \paragraph{}
-In this device, the DMA is connected to an internal 32KB addressable BRAM
-memory whose contents are initialized once at main time with an increasing
-pattern such that:
+In this device, the DMA is connected to an internal 32KB byte addressable
+BRAM memory whose contents are initialized once at main time with an
+increasing  pattern such that:
 \begin{center}$bram[i] = seed + i$\end{center}
 \paragraph{}
 $seed$ is a user provided value used to randomize the memory contents.
@@ -79,19 +88,31 @@ Registers are described in the following sections.
 \begin{table}[!h]
 \centering
 \begin{scriptsize}
-\begin{tabular}{|p{1cm}|p{12cm}|}
+\begin{tabular}{|p{1cm}|p{1.5cm}|p{1.5cm}|p{10cm}|}
   \hline
-  \textit{name} & \textit{description} \\
+  \textit{name} & \textit{offset (bits)} & \textit{size (bits)} & \textit{description} \\
   \hline
   S
+  &
+  31
+  &
+  1
   &
   set to 1 to start the transfer. self clears. \\
   \hline
   I
   &
+  30
+  &
+  1
+  &
   set to 1 to enable interrupt at end of transfer. default to 0. \\
   \hline
   N
+  &
+  0
+  &
+  16
   &
   size of the transfer, in bytes. \\
   \hline
@@ -115,15 +136,23 @@ Registers are described in the following sections.
 \begin{table}[!h]
 \centering
 \begin{scriptsize}
-\begin{tabular}{|p{1cm}|p{12cm}|}
+\begin{tabular}{|p{1cm}|p{1.5cm}|p{1.5cm}|p{10cm}|}
   \hline
-  \textit{name} & \textit{description} \\
+  \textit{name} & \textit{offset (bits)} & \textit{size (bits)} & \textit{description} \\
   \hline
   D
+  &
+  31
+  &
+  1
   &
   automatically set to 1 when a transfer is done. 0 if a transfer is running.\\
   \hline
   N
+  &
+  0
+  &
+  16
   &
   size (in bytes) actually transfered. valid only when DMA not running (ie. R cleared). \\
   \hline
@@ -147,15 +176,23 @@ Registers are described in the following sections.
 \begin{table}[!h]
 \centering
 \begin{scriptsize}
-\begin{tabular}{|p{1cm}|p{12cm}|}
+\begin{tabular}{|p{1cm}|p{1.5cm}|p{1.5cm}|p{10cm}|}
   \hline
-  \textit{name} & \textit{description} \\
+  \textit{name} & \textit{offset (bits)} & \textit{size (bits)} & \textit{description} \\
   \hline
   ADL
+  &
+  0
+  &
+  32
   &
   destination address low part (32 least significant bits). \\
   \hline
   ADH
+  &
+  0
+  &
+  32
   &
   destination address high part (32 most significant bits). \\
   \hline
@@ -179,11 +216,15 @@ Registers are described in the following sections.
 \begin{table}[!h]
 \centering
 \begin{scriptsize}
-\begin{tabular}{|p{1cm}|p{12cm}|}
+\begin{tabular}{|p{1cm}|p{1.5cm}|p{1.5cm}|p{10cm}|}
   \hline
-  \textit{name} & \textit{description} \\
+  \textit{name} & \textit{offset (bits)} & \textit{size (bits)} & \textit{description} \\
   \hline
   S
+  &
+  0
+  &
+  8
   &
   the user provided seed. default to 0. \\
   \hline
@@ -203,9 +244,9 @@ Registers are described in the following sections.
 When programming the DMA to perform a memory transfer, a user is expected to
 follow this procedure:
 \begin{enumerate}
-\item the user eventually sets a seed in DMA\_REG\_BAZ[7:0],
+\item the user eventually sets a seed in the DMA\_REG\_BAZ S field,
 \item the user sets DMA\_REG\_ADx with the 64 bits destination address,
-\item the user sets DMA\_REG\_CTL[15:0] with the byte count to transfer,
+\item the user sets the DMA\_REG\_CTL N field with the byte count to transfer,
 \item the user eventually sets the DMA\_REG\_CTL I bit if an interrupt is
 required at the end of the transfer,
 \item the user sets the DMA\_REG\_CTL S bit to start the transfer,
