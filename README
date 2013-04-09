@@ -37,13 +37,25 @@ implementation of PCIE devices.
 Instructions to clone the QEMU repo are available at:
 http://wiki.qemu.org/Main_Page
 
-checkout revision:
-58617a795c8067b2f9800cffce60f38707d3aa31
+The VPCIE qemu/ directory contains patches to apply starting from a given
+QEMU git commit. When several patches are provided, the order in which they
+must be applied is given by their numeric prefix (ie. 00_pciefw.patch then
+01_nvme.patch ...).
 
-Apply the patch:
-qemu/qemu_58617a795c8067b2f9800cffce60f38707d3aa31.diff
+For instance, QEMU version 1.4.0 has commit:
+03e94e39ce5259efdbdeefa1f249ddb499d57321
 
-It adds PCIEFW to the QEMU hw directory and integrate it to the build system
+Thus, clone QEMU and position to the commit:
+03e94e39ce5259efdbdeefa1f249ddb499d57321
+
+Apply the PCIEFW patch:
+< qemu/03e94e39ce5259efdbdeefa1f249ddb499d57321/00_pciefw.patch patch -p1
+
+If wanted, apply the NVME patch:
+< qemu/03e94e39ce5259efdbdeefa1f249ddb499d57321/01_nvme.patch patch -p1
+
+Then you can build QEMU. A default configuration script is provided:
+qemu/03e94e39ce5259efdbdeefa1f249ddb499d57321/do_configure.sh
 
 [[ GHDL ]]
 
