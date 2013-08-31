@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
-PCIE_DIR=../../pcie
-SBONE_DIR=../../sbone
+PCIE_DIR=../../../pcie
+SBONE_DIR=../../../sbone
 
 ghdl -a \
  $PCIE_DIR/pcie_pkg.vhdl \
