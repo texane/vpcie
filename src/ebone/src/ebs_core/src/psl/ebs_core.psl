@@ -1,0 +1,101 @@
+--------------------------------------------------------------------------
+--
+-- E-bone - core interconnect PSL Assertion Based Verification
+--
+--------------------------------------------------------------------------
+--
+-- Version  Date       Author  Comment
+--     0.1  14/04/11    herve  Preliminary
+--
+-- http://www.esrf.fr
+--------------------------------------------------------------------------
+-- Compile as follows
+-- vcom -quiet src/ebs_core.vhd -pslfile src/ebs_core.psl
+-- 
+-- Simulate for checking those assertions as follows
+-- vsim -psl -assertdebug ... 
+--------------------------------------------------------------------------
+vunit abv_ebs_core
+{
+default clock is rising_edge(eb_clk_i);
+
+-- Master (but FT) related assertions
+-------------------------------------
+property no_mxbrq_when_bft is 
+         always eb_bft_o -> NOT eb_m0_brq_i AND NOT eb_m1_brq_i;
+
+assert no_mxbrq_when_bft 
+       report "E-bone: some master BRQ asserted when BFT is asserted";
+
+-- Fast Transmitter related assertions
+--------------------------------------
+property ft_no_brq_when_bmx is 
+         always eb_bmx_o -> NOT eb_ft_brq_i;
+
+assert ft_no_brq_when_bmx 
+       report "E-bone: FT_BRQ asserted when BMX is asserted";
+
+property ft_aef_to_eof is 
+         always eb_ft_aef_i -> next eb_ft_eof_i;
+
+assert ft_aef_to_eof 
+       report "E-bone: FT_EOF should assert following FT_AEF";
+
+-- Slave (but FT) related assertions
+-- Note: slave #0 is reserved for FT
+------------------------------------
+property slv_quiet_ctrl is
+         always (NOT eb_bmx_o) -> NOT eb_dk_i(eb_dk_i'HIGH downto 1) AND
+                                  NOT eb_err_i(eb_err_i'HIGH downto 1);
+
+assert slv_quiet_ctrl 
+       report "E-bone: slave must drive DK and ERR to zero when not addressed";
+
+property slv_single is
+         always (eb_m0_as_i OR eb_m1_as_i) AND NOT (eb_m0_eof_i OR eb_m1_eof_i) -> 
+                countones(eb_dk_i) < 2 OR countones(eb_err_i) < 2 ;
+
+assert slv_single 
+       report "E-bone: multiple slaves acknowledge error";
+
+property as_to_ctrl is
+         always rose(eb_m0_as_i) OR rose(eb_m1_as_i) -> NOT eb_dk_i(eb_dk_i'HIGH downto 1)  AND
+                                                        NOT eb_err_i(eb_dk_i'HIGH downto 1);
+assert as_to_ctrl 
+       report "E-bone: slave cannot assert DK or ERR until AS is asserted";
+
+property dk_to_as is
+         forall NSLV in {1 to eb_dk_i'HIGH} :
+         always (eb_dk_i(NSLV) -> next eb_dk_i(NSLV))
+                                  abort NOT (eb_m0_as_i OR eb_m1_as_i);
+assert dk_to_as 
+       report "E-bone: slave cannot release DK until AS released";
+
+property dk_to_err is
+         forall NSLV in {1 to eb_dk_i'HIGH} :
+         always eb_dk_i(NSLV) -> next NOT rose(eb_err_i(NSLV));
+
+assert dk_to_err 
+       report "E-bone: slave cannot assert ERR after asserting DK";
+
+property dk_to_dk is
+         forall NSLV in {1 to eb_dk_i'HIGH} :
+         always (fell(eb_dk_i(NSLV)) -> {NOT eb_dk_i(NSLV)[*3]})
+                                        abort NOT eb_bmx_o;
+assert dk_to_dk 
+       report "E-bone: slave cannot re-assert DK after releasing it";
+
+property err_to_as is
+         forall NSLV in {1 to eb_err_i'HIGH} :
+         always (eb_err_i(NSLV) -> next eb_err_i(NSLV))
+                                   abort NOT (eb_m0_as_i OR eb_m1_as_i);
+
+assert err_to_as report "E-bone: slave cannot release ERR until AS released";
+
+property err_to_dk is
+         forall NSLV in {1 to eb_err_i'HIGH} :
+         always eb_err_i(NSLV) -> next NOT rose(eb_dk_i(NSLV));
+
+assert err_to_dk 
+       report "E-bone: slave cannot assert DK after asserting ERR";
+}

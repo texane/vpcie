@@ -1,0 +1,14 @@
+vunit abv_ebs_core32(ebs_core)
+{
+inherit abv_ebs_core;
+
+constant GND32: std_logic_vector(31 downto 0) := (others => '0');
+
+property slv_quiet_data is 
+         forall NSLV in {1 to eb_dk_i'HIGH} :
+         always (NOT eb_bmx_o) -> next eb_dat_i(NSLV) = GND32;
+
+assert slv_quiet_data 
+       report "E-bone: slave must drive DAT to zero when not addressed";
+
+}

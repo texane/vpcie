@@ -1,0 +1,9 @@
+run
+-ifn rashpa.prj
+-ofn rashpa.ngc
+-top rashpa_top
+-p xc3s500e-4-vq100
+-opt_mode speed
+-opt_level 1
+-iobuf YES
+-iob TRUE

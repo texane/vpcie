@@ -74,7 +74,10 @@ ghdl/README
 pcie: pcie related development file, both C and VHDL
 main: currently contains a minimalistic GHDL main
 sbone: a device written in VHDL and the corresponding LINUX driver
-dma: simple dma engine, both in C and VHDL. refer to d_in_c/main_dma.c.
+dma: simple dma engine, both in C and VHDL. refer to d_in_c/main_dma.c
+ebone: how to use EBONE (http://www.ohwr.org/projects/e-bone). It may
+not work with the latest EBONE release, as the endpoint changed a bit
+since the time of this implementation. It gives a good example anyway.
 
 
 [ implementing PCIE devices ]

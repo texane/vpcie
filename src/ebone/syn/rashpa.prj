@@ -1,0 +1,13 @@
+-- ebone bricks
+vhdl work ../src/ebs_core/ebs_core.vhd
+vhdl work ../src/eb_common/eb_common_pkg.vhd
+vhdl work ../src/eb_common/fifo_s.vhd
+
+-- rashpa
+vhdl work ../src/rashpa/rashpa_pkg.vhd
+vhdl work ../src/rashpa/rashpa_btu.vhd
+vhdl work ../src/rashpa/rashpa_bgu.vhd
+vhdl work ../src/rashpa/rashpa_ebs.vhd
+
+-- top
+vhdl work ../src/rashpa_top.vhd
