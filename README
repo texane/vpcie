@@ -133,3 +133,9 @@ Keith Busch (keith.busch@gmail.com) for NVME support in QEMU
 [ contact ]
 
 fabien.lementec@gmail.com (texane@gmail.com works too)
+
+
+[ license ]
+
+This software is distributed under the GPLv3 terms:
+https://www.gnu.org/licenses/gpl-3.0.fr.html
